@@ -2476,7 +2476,7 @@ function renderStreamDetail(d, isBackgroundUpdate = false) {
   const info = d.info || {};
   const finalClips = (d.final && d.final.clips) || [];
   const renderedClips = d.clips || [];
-  const isProcessing = d.job && !d.job.done;
+  const isProcessing = d.job && !d.job.done && d.job.action !== 'stopped';
   const pct = (d.job && d.job.pct !== undefined) ? d.job.pct : (d.job && d.job.transcribe_pct ? Math.round(d.job.transcribe_pct) : null);
   const audioDown = (d.job && d.job.audio_downloaded_hms) ? d.job.audio_downloaded_hms : (info.duration ? formatHms(info.duration) : 'Ready');
   const audioMb = (d.job && d.job.audio_downloaded_mb) ? `${d.job.audio_downloaded_mb} MB` : (info.duration ? `${Math.round(info.duration * 0.025)} MB` : '');
@@ -2497,8 +2497,8 @@ function renderStreamDetail(d, isBackgroundUpdate = false) {
       </div>
 
       <!-- ACTIVE PIPELINE DETAILED DASHBOARD CARD -->
-      ${(isProcessing || d.job) ? `
-        <div style="background:#FFFDE7;border:1.5px solid #FBC02D;border-radius:var(--r-sm);padding:16px 18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+      ${isProcessing ? `
+        <div id="activePipelineCard" style="background:#FFFDE7;border:1.5px solid #FBC02D;border-radius:var(--r-sm);padding:16px 18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <b style="color:#D84315;font-size:13.5px;display:flex;align-items:center;gap:8px;">
               <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#D84315;animation:pulse 1s infinite;"></span>
@@ -2506,7 +2506,7 @@ function renderStreamDetail(d, isBackgroundUpdate = false) {
             </b>
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-weight:800;font-size:15px;color:#D84315;">${pct !== null ? pct + '%' : ''}</span>
-              <button class="btn btn-sm btn-outline" style="border-color:#D84315;color:#D84315;background:#fff;padding:4px 12px;font-weight:700;font-size:12px;" onclick="stopStreamProcessing('${d.key}')">
+              <button id="btnStopCreating" class="btn btn-sm btn-outline" style="border-color:#D84315;color:#D84315;background:#fff;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;" onclick="stopStreamProcessing('${d.key}')">
                 ⏹️ Stop Creating
               </button>
             </div>
@@ -4631,13 +4631,18 @@ async function resumeStream(key) {
 }
 
 async function stopStreamProcessing(key) {
-  if (!confirm('Stop processing and clip creation for this stream?')) return;
+  const btn = document.getElementById('btnStopCreating');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = '⏳ Stopping...';
+  }
   try {
     const res = await fetch(`/api/streams/${key}/stop`, { method: 'POST' });
     const d = await res.json();
-    alert(d.message || 'Processing stopped');
-    fetchStatus();
-    setTimeout(() => selectStream(key), 800);
+    const card = document.getElementById('activePipelineCard');
+    if (card) card.remove();
+    await fetchStatus();
+    await selectStream(key);
   } catch (e) {
     alert('Error stopping stream: ' + e);
   }

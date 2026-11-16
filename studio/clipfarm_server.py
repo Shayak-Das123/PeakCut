@@ -527,7 +527,11 @@ def list_streams():
         final = read_json(d / "final.json", {})
         clips_count = len(list((d / "clips").glob("*.mp4"))) if (d / "clips").exists() else 0
         live_s = ACTIVE_LIVE_SESSIONS.get(d.name)
-        raw_job = (live_s.get_status() if hasattr(live_s, "get_status") else None) or ACTIVE_JOBS.get(d.name) or read_json(d / "progress.json", None)
+        raw_job = (live_s.get_status() if hasattr(live_s, "get_status") else None) or ACTIVE_JOBS.get(d.name)
+        if not raw_job and (d / "progress.json").exists():
+            pj = read_json(d / "progress.json", None)
+            if pj and not pj.get("done") and pj.get("action") not in ("stopped", "idle", "complete"):
+                raw_job = pj
         job_info = _enrich_job_info(d, raw_job, info, st, final) if raw_job else None
         stage_val = (
             live_s.status if live_s
@@ -602,7 +606,11 @@ def get_stream(key: str):
             })
 
     live_s = ACTIVE_LIVE_SESSIONS.get(key)
-    raw_job = (live_s.get_status() if hasattr(live_s, "get_status") else None) or ACTIVE_JOBS.get(key) or read_json(d / "progress.json", None)
+    raw_job = (live_s.get_status() if hasattr(live_s, "get_status") else None) or ACTIVE_JOBS.get(key)
+    if not raw_job and (d / "progress.json").exists():
+        pj = read_json(d / "progress.json", None)
+        if pj and not pj.get("done") and pj.get("action") not in ("stopped", "idle", "complete"):
+            raw_job = pj
     job_info = _enrich_job_info(d, raw_job, info, st, final_data) if raw_job else None
 
     return {
@@ -2219,23 +2227,26 @@ def _run_scan_thread(url: str, force_live: bool = False):
 
 @app.post("/api/streams/{key}/stop")
 def stop_stream_processing(key: str):
-    live_sess = ACTIVE_LIVE_SESSIONS.get(key)
+    live_sess = ACTIVE_LIVE_SESSIONS.pop(key, None)
     if live_sess and hasattr(live_sess, "stop"):
-        live_sess.stop("Stopped by user")
-        return {"ok": True, "message": "Live stream pipeline stopped."}
-    
+        try:
+            live_sess.stop("Stopped by user")
+        except Exception:
+            pass
+
     CANCEL_JOBS.add(key)
-    job = ACTIVE_JOBS.get(key)
-    if job:
-        job["action"] = "stopped"
-        job["progress"] = "Stopped by user"
-        job["done"] = True
-    
+    ACTIVE_JOBS.pop(key, None)
+
     d = stream_dir(key)
     if d.exists():
-        write_json(d / "progress.json", {"action": "stopped", "progress": "Stopped by user", "done": True})
+        prog_p = d / "progress.json"
+        if prog_p.exists():
+            try:
+                prog_p.unlink()
+            except OSError:
+                write_json(prog_p, {"action": "stopped", "progress": "Stopped by user", "done": True})
 
-    return {"ok": True, "message": "Processing stopped successfully."}
+    return {"ok": True, "message": "Pipeline stopped and cleared successfully."}
 
 
 @app.post("/api/streams/{key}/resume")
