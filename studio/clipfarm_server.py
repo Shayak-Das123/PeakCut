@@ -645,12 +645,16 @@ def list_all_clips():
             prefix = f.stem.split("_")[0]
             cid_val = prefix if (prefix.isdigit() or prefix.startswith("c")) else f.stem
         
-        stream_name = stream_key if stream_key != "vod" else meta.get("stream", "")
+        stream_name = stream_key if stream_key != "vod" else (meta.get("stream") or "")
+        effective_stream_key = stream_name or stream_key
         if stream_name:
             final_p = WORK_DIR / "streams" / stream_name / "final.json"
             stream_final = read_json(final_p, {}) if final_p.exists() else {}
             f_clip = next((c for c in stream_final.get("clips", []) if match_clip_id(c.get("id"), cid_val)), None)
+            if not f_clip:
+                f_clip = next((c for c in stream_final.get("clips", []) if c.get("file") == f.name), None)
             if f_clip:
+                cid_val = f_clip.get("id") or cid_val
                 if f_clip.get("hook"):
                     meta["hook"] = f_clip["hook"]
                 if f_clip.get("caption") and "Would you have reacted" not in f_clip["caption"]:
@@ -685,7 +689,7 @@ def list_all_clips():
         
         clips.append({
             "filename": f.name,
-            "stream_key": stream_key,
+            "stream_key": effective_stream_key,
             "cid": cid_val,
             "streamer": meta.get("streamer") or "Creator",
             "title": meta.get("title") or meta.get("hook") or f.stem,
@@ -1563,12 +1567,33 @@ def rerender_clip_custom(key: str, cid: str, payload: dict):
     if made:
         rendered_name = made[0]["file"]
         stem = Path(rendered_name).stem
+        # Clean up any obsolete/previous clip files for this cid in target_clips
+        for old_f in list(target_clips.glob("*")):
+            if (match_clip_id(old_f.stem.split("_")[0], actual_cid) or old_f.stem.startswith(f"{actual_cid}_")) and not old_f.name.startswith(stem):
+                try: old_f.unlink()
+                except Exception: pass
+
         dated_root = WORK_DIR / "clips"
         if dated_root.exists():
             for folder in dated_root.glob("*"):
                 if folder.is_dir():
                     for item in folder.glob(f"{stem}*"):
                         shutil.copy2(item, target_clips / item.name)
+
+        clip["file"] = rendered_name
+        write_json(final_file, final_data)
+
+        # Also sync to saved_clips if marked as saved
+        if clip.get("saved"):
+            saved_dir = WORK_DIR / "saved_clips"
+            saved_dir.mkdir(parents=True, exist_ok=True)
+            for old_s in list(saved_dir.glob("*")):
+                if (match_clip_id(old_s.stem.split("_")[0], actual_cid) or old_s.stem.startswith(f"{actual_cid}_")) and not old_s.name.startswith(stem):
+                    try: old_s.unlink()
+                    except Exception: pass
+            for item in target_clips.glob(f"{stem}*"):
+                try: shutil.copy2(item, saved_dir / item.name)
+                except Exception: pass
 
         # Mix background music if selected
         music_file = payload.get("music_file") or clip.get("music_file")

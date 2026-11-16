@@ -3569,13 +3569,39 @@ function seekStudioVideo(t) {
   updateStudioTime(clamped);
 }
 
+let studioAnimFrameId = null;
+
+function studioPlaybackLoop() {
+  if (!studioState.isPlaying) return;
+  const t = getStudioCurrentTime();
+  updateStudioTime(t);
+  studioAnimFrameId = requestAnimationFrame(studioPlaybackLoop);
+}
+
+function startStudioPlayback() {
+  studioState.isPlaying = true;
+  const btn = document.getElementById('timelineBtnPlay');
+  if (btn) btn.innerText = '⏸';
+  if (studioAnimFrameId) cancelAnimationFrame(studioAnimFrameId);
+  studioAnimFrameId = requestAnimationFrame(studioPlaybackLoop);
+}
+
+function stopStudioPlayback() {
+  studioState.isPlaying = false;
+  const btn = document.getElementById('timelineBtnPlay');
+  if (btn) btn.innerText = '▶';
+  if (studioAnimFrameId) {
+    cancelAnimationFrame(studioAnimFrameId);
+    studioAnimFrameId = null;
+  }
+}
+
 function toggleTimelinePlay() {
   const v = document.getElementById('previewVideo');
   const bg = document.getElementById('previewBgVideo');
   const fc = document.getElementById('previewFacecamVideo');
   const gp = document.getElementById('previewGameplayVideo');
   const ma = document.getElementById('previewMusicAudio');
-  const btn = document.getElementById('timelineBtnPlay');
 
   const isPaused = studioState.layout === 'stack' ? (gp ? gp.paused : true) : (v ? v.paused : true);
 
@@ -3588,16 +3614,14 @@ function toggleTimelinePlay() {
       if (bg && bg.src && studioState.layout === 'blur') bg.play().catch(() => {});
     }
     if (ma && studioState.music_url) ma.play().catch(() => {});
-    if (btn) btn.innerText = '⏸';
-    studioState.isPlaying = true;
+    startStudioPlayback();
   } else {
     if (v) v.pause();
     if (bg && bg.src) bg.pause();
     if (fc) fc.pause();
     if (gp) gp.pause();
     if (ma) ma.pause();
-    if (btn) btn.innerText = '▶';
-    studioState.isPlaying = false;
+    stopStudioPlayback();
   }
 }
 
@@ -3638,7 +3662,11 @@ function renderActiveSubtitles(t) {
   if (!container) return;
 
   const isSnap = studioState.preset === 'snap2';
-  const cue = studioState.cues.find(c => t >= c.start && t <= c.end);
+  // Precise 160ms audio lead offset so kinetic captions trigger on syllable onset without lag
+  const CAPTION_LEAD = 0.16;
+  const evalT = t + CAPTION_LEAD;
+
+  const cue = studioState.cues.find(c => evalT >= c.start && evalT <= c.end);
   if (!cue) {
     container.style.opacity = '0';
     if (!isSnap) {
@@ -3683,7 +3711,7 @@ function renderActiveSubtitles(t) {
     wordEls.forEach(el => {
       const s = parseFloat(el.getAttribute('data-s'));
       const e = parseFloat(el.getAttribute('data-e'));
-      const isActive = t >= s && t <= e;
+      const isActive = evalT >= s && evalT <= e;
       el.classList.toggle('active-word', isActive);
     });
   }
@@ -4500,9 +4528,7 @@ function closeStudioModal() {
   if (ma) { ma.pause(); ma.currentTime = 0; ma.removeAttribute('src'); }
 
   hideContextMenu();
-  studioState.isPlaying = false;
-  const playBtn = document.getElementById('timelineBtnPlay');
-  if (playBtn) playBtn.innerText = '▶';
+  stopStudioPlayback();
 }
 window.closeModal = closeStudioModal;
 
@@ -4510,27 +4536,35 @@ function initStudioPlayerEvents() {
   const v = document.getElementById('previewVideo');
   const gp = document.getElementById('previewGameplayVideo');
   if (v) {
+    v.addEventListener('play', () => {
+      if (studioState.layout === 'blur') startStudioPlayback();
+    });
+    v.addEventListener('pause', () => {
+      if (studioState.layout === 'blur' && !studioState.isPlaying) stopStudioPlayback();
+    });
     v.addEventListener('timeupdate', () => {
       if (studioState.layout === 'blur') {
         updateStudioTime(v.currentTime);
       }
     });
     v.addEventListener('ended', () => {
-      const btn = document.getElementById('timelineBtnPlay');
-      if (btn) btn.innerText = '▶';
-      studioState.isPlaying = false;
+      stopStudioPlayback();
     });
   }
   if (gp) {
+    gp.addEventListener('play', () => {
+      if (studioState.layout === 'stack') startStudioPlayback();
+    });
+    gp.addEventListener('pause', () => {
+      if (studioState.layout === 'stack' && !studioState.isPlaying) stopStudioPlayback();
+    });
     gp.addEventListener('timeupdate', () => {
       if (studioState.layout === 'stack') {
         updateStudioTime(gp.currentTime);
       }
     });
     gp.addEventListener('ended', () => {
-      const btn = document.getElementById('timelineBtnPlay');
-      if (btn) btn.innerText = '▶';
-      studioState.isPlaying = false;
+      stopStudioPlayback();
     });
   }
 

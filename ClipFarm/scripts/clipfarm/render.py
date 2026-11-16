@@ -403,7 +403,8 @@ def render_one(info: dict, d: Path, clip: dict, idx: int, out_dir: Path, layout:
         n_in += 1
     gain = max(-12.0, min(18.0, -14.0 - _measure_keep(sec, keep)))
     fc.append(f"[ac]volume={gain:.2f}dB,alimiter=limit=0.89:level=false,aresample=48000[aout]")
-    name = f"{idx:02d}_{slug(who, 18)}_{slug(hook or clip.get('title', cid), 34)}"
+    cid_prefix = re.sub(r"[^\w]", "", cid)
+    name = f"{cid_prefix}_{slug(who, 18)}_{slug(hook or clip.get('title', cid), 34)}"
     out = out_dir / f"{name}.mp4"
     out_dir.mkdir(parents=True, exist_ok=True)
     script = work / "filter.txt"
@@ -533,6 +534,14 @@ def post_kit(info: dict, clip: dict, s: float, L: float, out: Path) -> str:
 
 import shutil
 
+def match_clip_id(a, b) -> bool:
+    t = str(a).lower().replace("_", "").replace("-", "")
+    o = str(b).lower().replace("_", "").replace("-", "")
+    if t == o: return True
+    tn, on = re.sub(r"[^\d]", "", t), re.sub(r"[^\d]", "", o)
+    return bool(tn and on and int(tn) == int(on))
+
+
 def render_stream(key: str, only: str | None = None, layout: str | None = None, on_progress = None) -> list[dict]:
     d = stream_dir(key)
     info = read_json(d / "info.json", {})
@@ -579,8 +588,20 @@ def render_stream(key: str, only: str | None = None, layout: str | None = None, 
             clip_file = m.get("file")
             if clip_file:
                 c_stem = Path(clip_file).stem
+                # Clean up any obsolete previous clip files for this cid in target_clips
+                for old_f in list(target_clips.glob("*")):
+                    if (match_clip_id(old_f.stem.split("_")[0], cid) or old_f.stem.startswith(f"{cid}_")) and not old_f.name.startswith(c_stem):
+                        try: old_f.unlink()
+                        except Exception: pass
                 for item in out_dir.glob(f"{c_stem}*"):
                     shutil.copy2(item, target_clips / item.name)
+
+            c["file"] = clip_file
+            try:
+                write_json(d / "final.json", final)
+            except Exception:
+                pass
+
             st = read_json(d / "state.json", {})
             st["rendered"] = time.time()
             existing_clips = st.get("clips", [])
