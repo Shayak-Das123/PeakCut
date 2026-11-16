@@ -30,3 +30,19 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+.pip_cache/
+.tmp/
+
+# ---- Large media, downloads, models, cache
+ClipFarm/work/
+ClipFarm/models/
+ClipFarm/data/
+CLIPFARM*clipper*
+*.mp4
+*.mkv
+*.webm
+*.avi
+*.mov
+test_*.jpg
+test_*.png
+test_hook.png

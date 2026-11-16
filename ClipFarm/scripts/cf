@@ -1,0 +1,9 @@
+#!/bin/bash
+# Clip Farm launcher: runs the clipper with its own Python (made by cf setup).
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY="${CLIPFARM_HOME:-$HOME/.clip-farm}/venv/bin/python"
+if [ ! -x "$PY" ]; then
+  if [ "$1" = "setup" ] || [ "$1" = "doctor" ]; then PY="$(command -v python3.12 || command -v python3)"; else
+    echo "Clip Farm isn't set up yet. Run: $DIR/cf setup" >&2; exit 1; fi
+fi
+exec "$PY" "$DIR/cf.py" "$@"
