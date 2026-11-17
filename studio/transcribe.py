@@ -19,6 +19,28 @@ _lock = threading.Lock()
 # machine (under 8 cores) this is still a single copy, as before.
 _CPUS = os.cpu_count() or 4
 PROVIDER = os.environ.get("PEAKCUT_ASR_PROVIDER", "cpu").strip().lower() or "cpu"      # "cuda" on a graphics card
+
+if os.name == "nt" and PROVIDER == "cuda":
+    import sys
+    _site = os.path.join(os.path.dirname(sys.executable), "..", "Lib", "site-packages")
+    _nvidia = os.path.join(_site, "nvidia")
+    if os.path.isdir(_nvidia):
+        for _pkg in os.listdir(_nvidia):
+            for _sub in ("", "bin"):
+                _p = os.path.abspath(os.path.join(_nvidia, _pkg, _sub))
+                if os.path.isdir(_p):
+                    try:
+                        os.add_dll_directory(_p)
+                    except Exception:
+                        pass
+                    os.environ["PATH"] = _p + os.pathsep + os.environ.get("PATH", "")
+    _sherpa_lib = os.path.abspath(os.path.join(_site, "sherpa_onnx", "lib"))
+    if os.path.isdir(_sherpa_lib):
+        try:
+            os.add_dll_directory(_sherpa_lib)
+        except Exception:
+            pass
+        os.environ["PATH"] = _sherpa_lib + os.pathsep + os.environ.get("PATH", "")
 THREADS = int(os.environ.get("PEAKCUT_ASR_THREADS") or (4 if _CPUS >= 8 else max(2, _CPUS - 2)))
 COPIES = int(os.environ.get("PEAKCUT_ASR_COPIES") or (1 if PROVIDER != "cpu" else max(1, _CPUS // THREADS) if _CPUS >= 8 else 1))
 _free: "queue.LifoQueue" = queue.LifoQueue()
