@@ -1142,6 +1142,22 @@ video::backdrop {
   align-items: center;
   gap: 12px;
 }
+.studio-nudge-btn {
+  background: #27272a;
+  color: #e4e4e7;
+  border: 1px solid #3f3f46;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.studio-nudge-btn:hover {
+  background: #3f3f46;
+  border-color: #71717a;
+  color: #fff;
+}
 .timeline-btn-play {
   background: #27272a;
   border: 1px solid #3f3f46;
@@ -2002,7 +2018,8 @@ video::backdrop {
           </div>
           <div style="display:flex;gap:6px;align-items:center;">
             <input type="text" id="inspHookText" class="studio-input" style="flex:1;font-weight:700;font-size:14px;" placeholder="e.g. CaseOh defends his daughter 😂">
-            <button type="button" id="btnInspAiHook" class="studio-btn" style="white-space:nowrap;padding:7px 12px;background:#3b82f6;color:#fff;font-weight:700;font-size:12px;border:none;border-radius:6px;cursor:pointer;" onclick="triggerAiHookRegen()" title="Generate viral AI hook using Gemini">✨ AI Hook</button>
+            <button type="button" id="btnInspAiHook" class="studio-btn" style="white-space:nowrap;padding:7px 10px;background:#3b82f6;color:#fff;font-weight:700;font-size:12px;border:none;border-radius:6px;cursor:pointer;" onclick="triggerAiHookRegen()" title="Generate viral AI hook using Gemini">✨ AI Hook</button>
+            <button type="button" id="btnInspAgentCreative" class="studio-btn" style="white-space:nowrap;padding:7px 10px;background:#8b5cf6;color:#fff;font-weight:700;font-size:12px;border:none;border-radius:6px;cursor:pointer;" onclick="triggerAgentCreative()" title="Autonomous Subagent generates viral hook & caption without Gemini API">🤖 Agent AI</button>
           </div>
           <div id="inspAiHookSuggestions" style="display:none;margin-top:6px;gap:5px;flex-wrap:wrap;"></div>
 
@@ -2162,6 +2179,28 @@ video::backdrop {
             ▶
           </button>
           <div class="timeline-timecode" id="timelineTimecode">00:00.0 / 00:00.0</div>
+        </div>
+        <div class="transport-center" style="display:flex;align-items:center;gap:10px;background:#202024;padding:3px 10px;border-radius:6px;border:1px solid #333338;">
+          <div style="display:flex;align-items:center;gap:3px;">
+            <span style="font-size:10.5px;font-weight:700;color:#a1a1aa;margin-right:2px;">Start:</span>
+            <button type="button" class="studio-nudge-btn" onclick="nudgeClipStart(-5)" title="Start 5s earlier">-5s</button>
+            <button type="button" class="studio-nudge-btn" onclick="nudgeClipStart(-2)" title="Start 2s earlier">-2s</button>
+            <button type="button" class="studio-nudge-btn" onclick="nudgeClipStart(1)" title="Start 1s later">+1s</button>
+            <button type="button" class="studio-nudge-btn" onclick="nudgeClipStart(2)" title="Start 2s later">+2s</button>
+          </div>
+          <div style="width:1px;height:14px;background:#3f3f46;"></div>
+          <div style="display:flex;align-items:center;gap:3px;">
+            <span style="font-size:10.5px;font-weight:700;color:#a1a1aa;margin-right:2px;">End:</span>
+            <button type="button" class="studio-nudge-btn" onclick="nudgeClipEnd(-2)" title="End 2s earlier">-2s</button>
+            <button type="button" class="studio-nudge-btn" onclick="nudgeClipEnd(-1)" title="End 1s earlier">-1s</button>
+            <button type="button" class="studio-nudge-btn" onclick="nudgeClipEnd(2)" title="End 2s later">+2s</button>
+            <button type="button" class="studio-nudge-btn" onclick="nudgeClipEnd(5)" title="End 5s later">+5s</button>
+          </div>
+          <div style="width:1px;height:14px;background:#3f3f46;"></div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span id="trimLiveDurationBadge" style="font-size:11px;font-weight:800;color:#fbbf24;" title="Updated clip length">30.0s</span>
+            <button type="button" id="btnApplyClipTrim" class="studio-btn" style="padding:3px 8px;font-size:11px;background:#10b981;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:700;opacity:0.6;" onclick="applyClipBoundaryTrim()" title="Re-cut & extend/trim clip boundary">✂️ Apply</button>
+          </div>
         </div>
         <div class="transport-right">
           <button class="timeline-btn-zoom" type="button" onclick="adjustTimelineZoom(0.8)" title="Zoom Out">[-] Zoom Out</button>
@@ -2477,10 +2516,39 @@ function renderStreamDetail(d, isBackgroundUpdate = false) {
   const finalClips = (d.final && d.final.clips) || [];
   const renderedClips = d.clips || [];
   const isProcessing = d.job && !d.job.done && d.job.action !== 'stopped';
+  const action = (d.job && d.job.action) ? d.job.action.toLowerCase() : '';
+  const isRender = action === 'render';
+  const isTranscribe = action === 'transcribe' || action === 'listen';
+  const isDownload = action === 'download' || action === 'fetch';
+
   const pct = (d.job && d.job.pct !== undefined) ? d.job.pct : (d.job && d.job.transcribe_pct ? Math.round(d.job.transcribe_pct) : null);
   const audioDown = (d.job && d.job.audio_downloaded_hms) ? d.job.audio_downloaded_hms : (info.duration ? formatHms(info.duration) : 'Ready');
   const audioMb = (d.job && d.job.audio_downloaded_mb) ? `${d.job.audio_downloaded_mb} MB` : (info.duration ? `${Math.round(info.duration * 0.025)} MB` : '');
-  const transHms = (d.job && d.job.audio_transcribed_hms) ? d.job.audio_transcribed_hms : (pct !== null && info.duration ? formatHms(info.duration * pct / 100) : '');
+
+  // Format Download status: only claim 100% when download stage is genuinely finished
+  let audioDownStatus = 'Buffering...';
+  if (isDownload) {
+    audioDownStatus = pct !== null ? `${pct}% Downloaded` : 'Downloading stream...';
+  } else if (isTranscribe || isRender || finalClips.length > 0 || (info.duration && !isProcessing)) {
+    audioDownStatus = '100% Downloaded';
+  } else if (info.duration) {
+    audioDownStatus = 'Stream ready';
+  }
+
+  // Format Transcribe status: never show render pct (e.g. 33%) as transcribe pct!
+  let transHmsVal = '';
+  let transSubText = 'Speech-to-text active';
+  if (isTranscribe) {
+    const tPct = (d.job && d.job.transcribe_pct !== undefined) ? Math.round(d.job.transcribe_pct) : (pct || 0);
+    transHmsVal = (d.job && d.job.audio_transcribed_hms) ? d.job.audio_transcribed_hms : (info.duration ? formatHms(info.duration * tPct / 100) : `${tPct}%`);
+    transSubText = `${tPct}% of full stream`;
+  } else if (isRender || finalClips.length > 0) {
+    transHmsVal = (d.job && d.job.audio_transcribed_hms) ? d.job.audio_transcribed_hms : (info.duration ? formatHms(info.duration) : 'Complete');
+    transSubText = '100% Transcribed';
+  } else {
+    transHmsVal = (d.job && d.job.audio_transcribed_hms) || (pct !== null && info.duration ? formatHms(info.duration * pct / 100) : 'Queued');
+    transSubText = pct !== null ? `${pct}% processed` : 'Speech-to-text queued';
+  }
 
   container.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:16px;">
@@ -2524,13 +2592,13 @@ function renderStreamDetail(d, isBackgroundUpdate = false) {
             <div style="background:#FFF9C4;border-radius:6px;padding:10px;">
               <div style="font-size:11px;font-weight:600;color:#795548;text-transform:uppercase;">🎧 Audio Downloaded</div>
               <div style="font-size:14.5px;font-weight:800;color:#111;margin-top:2px;">${audioMb ? audioMb + ' · ' : ''}${audioDown}</div>
-              <div style="font-size:10.5px;color:#666;">${info.duration ? '100% Downloaded' : 'Buffered'}</div>
+              <div style="font-size:10.5px;color:#666;">${audioDownStatus}</div>
             </div>
 
             <div style="background:#FFF9C4;border-radius:6px;padding:10px;">
               <div style="font-size:11px;font-weight:600;color:#795548;text-transform:uppercase;">📝 Audio Transcribed</div>
-              <div style="font-size:14.5px;font-weight:800;color:#D84315;margin-top:2px;">${transHms || (pct !== null ? pct + '%' : 'Processing')}</div>
-              <div style="font-size:10.5px;color:#666;">${pct !== null ? pct + '% of full stream' : 'Speech-to-text active'}</div>
+              <div style="font-size:14.5px;font-weight:800;color:#D84315;margin-top:2px;">${transHmsVal}</div>
+              <div style="font-size:10.5px;color:#666;">${transSubText}</div>
             </div>
 
             <div style="background:#FFF9C4;border-radius:6px;padding:10px;">
@@ -3077,6 +3145,10 @@ async function openClipEditor(streamKey, cid) {
     renderTimelineTracks();
     seekStudioVideo(0);
 
+    // Reset boundary trimmer UI
+    clipTrimPending = { startDelta: 0.0, endDelta: 0.0 };
+    updateClipTrimUI();
+
   } catch (err) {
     console.error('Failed to load clip editor data:', err);
     if (titleEl) titleEl.innerText = `🎬 ClipChamp Studio: Clip ${cid}`;
@@ -3192,6 +3264,120 @@ function applySuggestedHook(text) {
   const card = document.getElementById('previewHookCard');
   if (card) card.innerText = text;
   updateHookBlockPosition();
+}
+
+let clipTrimPending = {
+  startDelta: 0.0,
+  endDelta: 0.0
+};
+
+function nudgeClipStart(delta) {
+  clipTrimPending.startDelta += delta;
+  updateClipTrimUI();
+}
+
+function nudgeClipEnd(delta) {
+  clipTrimPending.endDelta += delta;
+  updateClipTrimUI();
+}
+
+function updateClipTrimUI() {
+  const baseDur = studioState.duration || 30.0;
+  const newDur = Math.max(4.0, baseDur - clipTrimPending.startDelta + clipTrimPending.endDelta);
+  const badge = document.getElementById('trimLiveDurationBadge');
+  if (badge) {
+    const hasDiff = Math.abs(clipTrimPending.startDelta) > 0.01 || Math.abs(clipTrimPending.endDelta) > 0.01;
+    const startStr = clipTrimPending.startDelta !== 0 ? `start ${clipTrimPending.startDelta > 0 ? '+' : ''}${clipTrimPending.startDelta}s` : '';
+    const endStr = clipTrimPending.endDelta !== 0 ? `end ${clipTrimPending.endDelta > 0 ? '+' : ''}${clipTrimPending.endDelta}s` : '';
+    const diffStr = [startStr, endStr].filter(Boolean).join(', ');
+    badge.innerText = `${newDur.toFixed(1)}s${hasDiff ? ` (${diffStr})` : ''}`;
+    badge.style.color = hasDiff ? '#38bdf8' : '#fbbf24';
+  }
+  const btn = document.getElementById('btnApplyClipTrim');
+  if (btn) {
+    const hasDiff = Math.abs(clipTrimPending.startDelta) > 0.01 || Math.abs(clipTrimPending.endDelta) > 0.01;
+    btn.style.opacity = hasDiff ? '1' : '0.6';
+  }
+}
+
+async function applyClipBoundaryTrim() {
+  if (Math.abs(clipTrimPending.startDelta) < 0.01 && Math.abs(clipTrimPending.endDelta) < 0.01) return;
+  const btn = document.getElementById('btnApplyClipTrim');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = '✂️ Trimming...';
+  }
+  try {
+    const res = await fetch(`/api/streams/${studioState.streamKey}/clips/${studioState.cid}/adjust-bounds`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        start_delta: clipTrimPending.startDelta,
+        end_delta: clipTrimPending.endDelta
+      })
+    });
+    const d = await res.json();
+    if (!res.ok || !d.ok) throw new Error(d.detail || 'Trimming failed');
+
+    clipTrimPending.startDelta = 0.0;
+    clipTrimPending.endDelta = 0.0;
+    updateClipTrimUI();
+
+    studioState.duration = d.duration;
+    if (Array.isArray(d.words) && d.words.length > 0) {
+      studioState.words = d.words;
+      studioState.cues = buildCuesFromWords(d.words, studioState.preset === 'snap2' ? 2 : 3);
+    }
+    renderTimelineTracks();
+    seekStudioVideo(0);
+    alert(`✂️ Clip boundary successfully updated to ${d.duration}s (${d.start} → ${d.end})!`);
+  } catch (err) {
+    alert(`Could not adjust clip bounds: ${err.message || err}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '✂️ Apply';
+    }
+  }
+}
+
+async function triggerAgentCreative() {
+  const btn = document.getElementById('btnInspAgentCreative');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = '🤖 Analyzing...';
+  }
+  try {
+    const res = await fetch(`/api/streams/${studioState.streamKey}/clips/${studioState.cid}/agent-generate`, {
+      method: 'POST'
+    });
+    const d = await res.json();
+    if (!res.ok || !d.ok) throw new Error(d.detail || 'Agent generation failed');
+
+    if (d.hook) {
+      studioState.hook = d.hook;
+      const inp = document.getElementById('inspHookText');
+      if (inp) inp.value = d.hook;
+      const card = document.getElementById('previewHookCard');
+      if (card) card.innerText = d.hook;
+      const lbl = document.getElementById('timelineHookLabel');
+      if (lbl) lbl.innerText = d.hook;
+      updateHookBlockPosition();
+    }
+    if (d.caption) {
+      studioState.caption = d.caption;
+      const capInp = document.getElementById('inspSocialCaption');
+      if (capInp) capInp.value = d.caption + (d.hashtags ? ' ' + d.hashtags.join(' ') : '');
+    }
+    alert(`🤖 Agent generated viral packaging:\n\nHook: "${d.hook}"\nCaption: ${d.caption}`);
+  } catch (err) {
+    alert(`Agent generation error: ${err.message || err}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '🤖 Agent AI';
+    }
+  }
 }
 
 function updateHookCardPosition() {

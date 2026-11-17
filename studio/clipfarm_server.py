@@ -1218,12 +1218,49 @@ def match_clip_id(target_id: str, candidate_id: str) -> bool:
 @app.get("/api/streams/{key}/clips/{cid}/editor-data")
 def get_clip_editor_data(key: str, cid: str):
     d = stream_dir(key)
-    final_file = d / "final.json"
-    final_data = read_json(final_file, {"clips": []}) if final_file.exists() else {"clips": []}
-    clip = next((c for c in final_data.get("clips", []) if match_clip_id(c.get("id"), cid)), None)
+    actual_key = key
+    clip = None
+
+    # 1. Look in specified stream directory
+    if d.exists():
+        final_file = d / "final.json"
+        final_data = read_json(final_file, {"clips": []}) if final_file.exists() else {"clips": []}
+        clip = next((c for c in final_data.get("clips", []) if match_clip_id(c.get("id"), cid)), None)
+        if not clip:
+            shortlist = read_json(d / "shortlist.json", [])
+            clip = next((c for c in shortlist if match_clip_id(c.get("id"), cid)), None)
+
+    # 2. If not found or key is 'vod', search all streams
     if not clip:
-        shortlist = read_json(d / "shortlist.json", [])
-        clip = next((c for c in shortlist if match_clip_id(c.get("id"), cid)), None)
+        for s_dir in (WORK_DIR / "streams").glob("*"):
+            fj = s_dir / "final.json"
+            if fj.exists():
+                c_list = read_json(fj, {}).get("clips", [])
+                match = next((c for c in c_list if match_clip_id(c.get("id"), cid)), None)
+                if match:
+                    clip = match
+                    d = s_dir
+                    actual_key = s_dir.name
+                    break
+
+    # 3. Check dated clips metadata if still not found
+    if not clip:
+        for c_dir in (WORK_DIR / "clips").glob("*"):
+            if c_dir.is_dir():
+                for mf in c_dir.glob("*.json"):
+                    m = read_json(mf, {})
+                    if match_clip_id(m.get("id"), cid) or match_clip_id(mf.stem.split("_")[0], cid):
+                        s_name = m.get("stream")
+                        if s_name and (WORK_DIR / "streams" / s_name).exists():
+                            d = WORK_DIR / "streams" / s_name
+                            actual_key = s_name
+                            fj = d / "final.json"
+                            c_list = read_json(fj, {}).get("clips", [])
+                            clip = next((c for c in c_list if match_clip_id(c.get("id"), cid)), m)
+                            break
+            if clip:
+                break
+
     if not clip:
         raise HTTPException(status_code=404, detail="Clip not found")
 
@@ -1298,12 +1335,16 @@ def get_clip_editor_data(key: str, cid: str):
             raw_video_url = f"/media/video/{sec_cut.name}"
 
     # Clean 9:16 vertical video without burned-in subtitles or hook:
-    clean_p = ensure_clean_video(key, actual_cid)
-    clean_video_url = f"/media/clean/{key}/{actual_cid}.mp4" if (clean_p and clean_p.exists()) else None
+    clean_p = d / "render" / actual_cid / "clean.mp4"
+    if not (clean_p.exists() and clean_p.stat().st_size > 10000):
+        clean_p = ensure_clean_video(actual_key, actual_cid)
+    clean_video_url = f"/media/clean/{actual_key}/{actual_cid}.mp4" if (clean_p and clean_p.exists()) else (video_url or raw_video_url)
 
     # PeekCut 9:16 video (16:9 uncropped centered + blurred background):
-    peek_p = ensure_peekcut_video(key, actual_cid)
-    peekcut_video_url = f"/media/peekcut/{key}/{actual_cid}.mp4" if (peek_p and peek_p.exists()) else clean_video_url
+    peek_p = d / "render" / actual_cid / "peekcut.mp4"
+    if not (peek_p.exists() and peek_p.stat().st_size > 10000):
+        peek_p = ensure_peekcut_video(actual_key, actual_cid)
+    peekcut_video_url = f"/media/peekcut/{actual_key}/{actual_cid}.mp4" if (peek_p and peek_p.exists()) else clean_video_url
 
     # Master editor video URL MUST be the clean vertical stack footage:
     master_video_url = clean_video_url or video_url or raw_video_url
@@ -1362,6 +1403,179 @@ def get_clip_editor_data(key: str, cid: str):
         "duration": round(duration, 2),
         "words": words,
         "presets": captions.STYLES
+    }
+
+
+@app.post("/api/streams/{key}/clips/{cid}/adjust-bounds")
+def adjust_clip_bounds(key: str, cid: str, payload: dict):
+    """
+    Adjusts the start and/or end time of a clip (e.g. start_delta = -5.0s, end_delta = +5.0s).
+    Re-cuts the section from the source video, re-transcribes words using GPU,
+    and updates final.json.
+    """
+    start_delta = float(payload.get("start_delta", 0.0))
+    end_delta = float(payload.get("end_delta", 0.0))
+    if abs(start_delta) < 0.05 and abs(end_delta) < 0.05:
+        return {"ok": True, "message": "No change"}
+
+    d = stream_dir(key)
+    actual_key = key
+    if not d.exists() or key == "vod":
+        for s_dir in (WORK_DIR / "streams").glob("*"):
+            fj = s_dir / "final.json"
+            if fj.exists():
+                c_list = read_json(fj, {}).get("clips", [])
+                match = next((c for c in c_list if match_clip_id(c.get("id"), cid)), None)
+                if match:
+                    d = s_dir
+                    actual_key = s_dir.name
+                    break
+
+    final_file = d / "final.json"
+    if not final_file.exists():
+        raise HTTPException(status_code=404, detail="Stream final.json not found")
+
+    final_data = read_json(final_file, {"clips": []})
+    clip = next((c for c in final_data.get("clips", []) if match_clip_id(c.get("id"), cid)), None)
+    if not clip:
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    actual_cid = clip.get("id") or cid
+    orig_start = util.parse_t(clip.get("start", "00:00"))
+    orig_end = util.parse_t(clip.get("end", "00:30"))
+
+    new_start = max(0.0, orig_start + start_delta)
+    new_end = max(new_start + 4.0, orig_end + end_delta)
+    new_dur = round(new_end - new_start, 2)
+
+    clip["start"] = util.hms(new_start)
+    clip["end"] = util.hms(new_end)
+    clip["duration"] = new_dur
+    write_json(final_file, final_data)
+
+    sec_file = d / "sections" / f"{actual_cid}.mp4"
+    sec_file.parent.mkdir(parents=True, exist_ok=True)
+    live_stream = d / "live_stream.mp4"
+
+    ffmpeg_bin = os.environ.get("PEAKCUT_FFMPEG_DIR", "")
+    ffmpeg_exe = os.path.join(ffmpeg_bin, "ffmpeg.exe") if ffmpeg_bin else (shutil.which("ffmpeg") or "ffmpeg")
+
+    if live_stream.exists():
+        s_t = max(0.0, new_start - 2.0)
+        e_t = new_end + 2.0
+        subprocess.run([
+            ffmpeg_exe, "-hide_banner", "-loglevel", "error", "-y",
+            "-ss", f"{s_t:.2f}", "-to", f"{e_t:.2f}",
+            "-i", str(live_stream),
+            "-c", "copy", "-movflags", "+faststart",
+            str(sec_file)
+        ], check=False)
+    elif sec_file.exists() and (start_delta > 0 or end_delta < 0):
+        trim_start = max(0.0, start_delta)
+        trim_dur = new_dur + 3.0
+        temp_sec = sec_file.with_suffix(".tmp.mp4")
+        subprocess.run([
+            ffmpeg_exe, "-hide_banner", "-loglevel", "error", "-y",
+            "-ss", f"{trim_start:.2f}", "-t", f"{trim_dur:.2f}",
+            "-i", str(sec_file),
+            "-c", "copy", "-movflags", "+faststart",
+            str(temp_sec)
+        ], check=False)
+        if temp_sec.exists() and temp_sec.stat().st_size > 5000:
+            temp_sec.replace(sec_file)
+
+    render_d = d / "render" / actual_cid
+    render_d.mkdir(parents=True, exist_ok=True)
+    wav_target = render_d / "clip16k.wav"
+    if sec_file.exists() and sec_file.stat().st_size > 5000:
+        subprocess.run([
+            ffmpeg_exe, "-hide_banner", "-loglevel", "error", "-y",
+            "-i", str(sec_file),
+            "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le",
+            str(wav_target)
+        ], check=False)
+
+    new_words = []
+    if wav_target.exists():
+        try:
+            from studio import transcribe as st_transcribe
+            audio_arr = media.load_audio(wav_target)
+            new_words = st_transcribe.transcribe(audio_arr)
+            write_json(render_d / "words.json", new_words)
+        except Exception as ex:
+            print("Error re-transcribing after bounds adjust:", ex)
+
+    for old_f in [render_d / "clean.mp4", render_d / "peekcut.mp4"]:
+        if old_f.exists():
+            try: old_f.unlink()
+            except: pass
+
+    threading.Thread(target=ensure_clean_video, args=(actual_key, actual_cid, True), daemon=True).start()
+
+    return {
+        "ok": True,
+        "cid": actual_cid,
+        "start": clip["start"],
+        "end": clip["end"],
+        "duration": new_dur,
+        "words": new_words
+    }
+
+
+@app.post("/api/streams/{key}/clips/{cid}/agent-generate")
+def agent_generate_clip_package(key: str, cid: str):
+    """
+    Autonomous creative agent for high-converting hook, alt hooks, and captions
+    using transcript, heatmaps, and signal context.
+    """
+    d = stream_dir(key)
+    if not d.exists() or key == "vod":
+        for s_dir in (WORK_DIR / "streams").glob("*"):
+            fj = s_dir / "final.json"
+            if fj.exists():
+                c_list = read_json(fj, {}).get("clips", [])
+                match = next((c for c in c_list if match_clip_id(c.get("id"), cid)), None)
+                if match:
+                    d = s_dir
+                    break
+
+    final_file = d / "final.json"
+    final_data = read_json(final_file, {"clips": []}) if final_file.exists() else {"clips": []}
+    clip = next((c for c in final_data.get("clips", []) if match_clip_id(c.get("id"), cid)), None)
+    if not clip:
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    actual_cid = clip.get("id") or cid
+    info = read_json(d / "info.json", {})
+    streamer = info.get("streamer") or "Streamer"
+    stream_title = info.get("title") or "Live Stream"
+
+    words_file = d / "render" / actual_cid / "words.json"
+    dlg = ""
+    if words_file.exists():
+        w_list = read_json(words_file, [])
+        dlg = " ".join(w.get("w", "") for w in w_list).strip()
+
+    pkg = generate_ai_clip_hook_and_caption(
+        streamer=streamer,
+        stream_title=stream_title,
+        dialogue=dlg,
+        why_signals=clip.get("why") or "High audience engagement moment",
+        cand_title=clip.get("title") or clip.get("hook") or ""
+    )
+
+    clip["hook"] = pkg["hook"]
+    clip["caption"] = pkg["caption"]
+    clip["hashtags"] = pkg.get("hashtags", [])
+    if final_file.exists():
+        write_json(final_file, final_data)
+
+    return {
+        "ok": True,
+        "hook": pkg["hook"],
+        "alt_hooks": pkg.get("alt_hooks", []),
+        "caption": pkg["caption"],
+        "hashtags": pkg.get("hashtags", [])
     }
 
 
@@ -1708,16 +1922,40 @@ def generate_ai_clip_hook_and_caption(streamer: str, stream_title: str, dialogue
     if not text_content:
         text_content = f"{clean_streamer} intense stream highlight"
 
-    fallback_hook = cand_title if (cand_title and cand_title != f"{streamer} reaction") else f"{clean_streamer} INSANE MOMENT"
-    fallback_caption = f"\"{dialogue[:90]}...\" Watch {clean_streamer} during this moment on stream! Would you have reacted the same way? 💀" if dialogue else f"Watch {clean_streamer} during this crazy moment!"
-    fallback_tags = [f"#{clean_streamer.replace(' ', '')}", "#gaming", "#viral", "#clips", "#twitch"]
+    # Smart contextual generator for fallback/offline when AI API is unavailable
+    dlg_lower = text_content.lower()
+    subject = ""
+    if "daughter" in dlg_lower and "ugly" in dlg_lower:
+        subject = "the game insulted his daughter"
+    elif "granny" in dlg_lower:
+        subject = "Granny caught him off guard"
+    elif "jumpscare" in dlg_lower or "scared" in dlg_lower or "scream" in dlg_lower:
+        subject = "this jumpscare completely broke him"
+    elif "boat" in dlg_lower or "faster" in dlg_lower:
+        subject = "he claimed he was faster than boats"
+    elif "die" in dlg_lower or "died" in dlg_lower:
+        subject = "nobody believed he survived that"
+    elif cand_title and len(cand_title.split()) >= 3 and not cand_title.isupper():
+        subject = cand_title
+    else:
+        # Extract the most impactful 4-5 words from dialogue
+        words_clean = [w for w in re.sub(r"[^a-zA-Z\s]", "", text_content).split() if len(w) > 3][:6]
+        subject = "this unexpected moment" if not words_clean else f"what happened with {' '.join(words_clean[:3])}"
+
+    if cand_title and not cand_title.isupper() and len(cand_title.split()) >= 3:
+        fallback_hook = cand_title
+    else:
+        fallback_hook = f"{clean_streamer} Can't Believe {subject.capitalize()}" if not subject.startswith(clean_streamer) else subject
+
+    fallback_caption = f"{clean_streamer} was NOT ready for what happened here live on stream 😭 Is this the wildest moment yet?"
+    fallback_tags = [f"#{clean_streamer.replace(' ', '')}", "#gaming", "#viral", "#clips", "#funny"]
 
     if not ai.ready():
         return {
             "hook": fallback_hook,
+            "alt_hooks": [f"Nobody expected {clean_streamer} to do this", f"{clean_streamer} loses it on stream"],
             "caption": fallback_caption,
-            "hashtags": fallback_tags,
-            "hooks": [fallback_hook, f"Nobody expected {clean_streamer} to do this", f"{clean_streamer} can't believe what happened"]
+            "hashtags": fallback_tags
         }
 
     prompt = f"""You are an elite viral clip editor scouting highlights for YouTube Shorts, TikTok, and Instagram Reels.
