@@ -689,9 +689,10 @@ def list_all_clips():
         
         # Expose clean (no burned text) video URL so the library preview matches
         # exactly what loads in the editor — same source, no confusion.
+        # ensure_clean_video stores files at render/{cid}/clean.mp4
         clean_p = None
         if stream_name:
-            _cp = WORK_DIR / "streams" / stream_name / "clean" / f"{cid_val}.mp4"
+            _cp = WORK_DIR / "streams" / stream_name / "render" / cid_val / "clean.mp4"
             if _cp.exists() and _cp.stat().st_size > 10000:
                 clean_p = _cp
         clean_video_url = f"/media/clean/{stream_name}/{cid_val}.mp4" if clean_p else f"/media/video/{f.name}"
