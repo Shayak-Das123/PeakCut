@@ -636,12 +636,24 @@ video::backdrop {
   display: none !important;
 }
 
-/* Vertical Video Mode (Two independent framing viewports: Top Facecam + Bottom Gameplay) */
+/* Vertical Video Mode: Main video is ALWAYS visible and fills 9:16 viewport */
+.preview-main-video {
+  display: block !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+  background: #000;
+}
 .preview-viewport.layout-stack .preview-bg-video {
   display: none !important;
 }
 .preview-viewport.layout-stack .preview-main-video {
-  display: none !important;
+  display: block !important;
+  z-index: 2;
 }
 .preview-viewport.layout-stack .stack-facecam-box {
   display: block !important;
@@ -819,21 +831,24 @@ video::backdrop {
 }
 
 .preview-subtitles.cue-enter-motion {
-  animation: cueMotionIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: kineticCuePop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
-@keyframes cueMotionIn {
+@keyframes kineticCuePop {
   0% {
     opacity: 0;
-    transform: translateX(-50%) translateY(8px) scale(0.96);
-    filter: blur(2.5px);
+    transform: translateX(-50%) translateY(14px) scale(0.82) rotate(-1.5deg);
+    filter: blur(3px);
   }
-  60% {
-    filter: blur(0.5px);
+  50% {
+    filter: blur(0px);
+  }
+  75% {
+    transform: translateX(-50%) translateY(-2px) scale(1.08) rotate(0.5deg);
   }
   100% {
     opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
+    transform: translateX(-50%) translateY(0) scale(1) rotate(0deg);
     filter: blur(0px);
   }
 }
@@ -842,11 +857,27 @@ video::backdrop {
   display: inline-block;
   margin: 0 5px;
   transform-origin: center center;
-  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              color 0.20s ease-out,
-              text-shadow 0.25s ease-out,
-              filter 0.22s ease-out;
-  will-change: transform, color, filter;
+  transition: transform 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+              color 0.15s ease-out,
+              text-shadow 0.20s ease-out,
+              filter 0.18s ease-out;
+  will-change: transform, color, text-shadow;
+}
+
+.preview-subtitles .cue-word.active-word {
+  animation: activeWordPop 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes activeWordPop {
+  0% {
+    transform: scale(0.92) translateY(0);
+  }
+  50% {
+    transform: scale(1.24) translateY(-3px) rotate(-1deg);
+  }
+  100% {
+    transform: scale(1.18) translateY(-2px) rotate(0deg);
+  }
 }
 
 /* Preset 1: Radiant Neon Glow (Yellow) */
@@ -856,9 +887,11 @@ video::backdrop {
 }
 .preset-pop_glow .cue-word.active-word {
   color: #ffd60a;
-  transform: scale(1.15) translateY(-2px);
-  text-shadow: 0 0 14px rgba(255, 214, 10, 0.9), 0 0 24px rgba(255, 214, 10, 0.6), 0 2px 4px #000;
-  filter: drop-shadow(0 0 6px rgba(255, 214, 10, 0.5));
+  text-shadow: 0 0 10px rgba(255, 214, 10, 0.95),
+               0 0 22px rgba(255, 214, 10, 0.75),
+               0 0 35px rgba(255, 214, 10, 0.45),
+               0 2px 4px #000;
+  filter: drop-shadow(0 0 6px rgba(255, 214, 10, 0.6));
 }
 
 /* Preset 2: Kinetic Bounce (Cyan) */
@@ -868,9 +901,11 @@ video::backdrop {
 }
 .preset-bounce .cue-word.active-word {
   color: #00f0ff;
-  transform: scale(1.16) translateY(-2px);
-  text-shadow: 0 0 14px rgba(0, 240, 255, 0.9), 0 0 24px rgba(0, 240, 255, 0.6), 0 2px 4px #000;
-  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.5));
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.95),
+               0 0 22px rgba(0, 240, 255, 0.75),
+               0 0 35px rgba(0, 240, 255, 0.45),
+               0 2px 4px #000;
+  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.6));
 }
 
 /* Preset 3: Clean Bold (White) */
@@ -2010,6 +2045,43 @@ video::backdrop {
           </div>
         </div>
 
+        <!-- Clip Boundaries & Duration Trimmer -->
+        <div class="studio-inspector-section" style="border: 1px solid #3b82f6; background: rgba(59, 130, 246, 0.08); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+          <div class="studio-section-title" style="color: #60a5fa; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: space-between;">
+            <span>✂️ Clip Duration & Boundaries</span>
+            <span id="inspTrimLiveDurationBadge" style="font-size: 12px; font-weight: 800; color: #fbbf24; background: rgba(0,0,0,0.4); padding: 2px 8px; border-radius: 4px;">30.0s</span>
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; margin: 4px 0 10px 0;">
+            Nudge clip start (start earlier) or end (end later) to capture the full setup and payoff:
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 6px;">
+              <span style="font-size: 11px; font-weight: 700; color: #e2e8f0;">Start Earlier / Later:</span>
+              <div style="display: flex; gap: 4px;">
+                <button type="button" class="studio-nudge-btn" onclick="nudgeClipStart(-5)" title="Start 5s earlier">⏮️ -5s</button>
+                <button type="button" class="studio-nudge-btn" onclick="nudgeClipStart(-2)" title="Start 2s earlier">-2s</button>
+                <button type="button" class="studio-nudge-btn" onclick="nudgeClipStart(2)" title="Start 2s later">+2s</button>
+                <button type="button" class="studio-nudge-btn" onclick="nudgeClipStart(5)" title="Start 5s later">+5s ⏭️</button>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 6px;">
+              <span style="font-size: 11px; font-weight: 700; color: #e2e8f0;">End Earlier / Later:</span>
+              <div style="display: flex; gap: 4px;">
+                <button type="button" class="studio-nudge-btn" onclick="nudgeClipEnd(-5)" title="End 5s earlier">⏮️ -5s</button>
+                <button type="button" class="studio-nudge-btn" onclick="nudgeClipEnd(-2)" title="End 2s earlier">-2s</button>
+                <button type="button" class="studio-nudge-btn" onclick="nudgeClipEnd(2)" title="End 2s later">+2s</button>
+                <button type="button" class="studio-nudge-btn" onclick="nudgeClipEnd(5)" title="End 5s later">+5s ⏭️</button>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+              <span id="inspTrimPendingText" style="font-size: 11px; color: #cbd5e1; font-weight: 600;">No changes yet</span>
+              <button type="button" id="btnInspApplyClipTrim" class="studio-btn" style="padding: 6px 14px; font-size: 12px; background: #10b981; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 800; opacity: 0.6;" onclick="applyClipBoundaryTrim()">
+                ✂️ Apply Boundary Change
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- 2. Big Hook Card Inspector -->
         <div class="studio-inspector-section">
           <div class="studio-section-title">
@@ -2796,6 +2868,60 @@ async function loadAllClips() {
               <button class="btn btn-sm btn-social" style="flex:1;" onclick="postToSocial('youtube', '${c.filename}')">Post to Shorts</button>
               <button class="btn btn-sm btn-social" style="flex:1;background:#E1306C;" onclick="postToSocial('instagram', '${c.filename}')">Post to Reels</button>
             </div>
+
+            <!-- ⚡ Quick Edit & Adjust Drawer (No Editor Needed) -->
+            <div class="quick-edit-panel" style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:8px 10px;margin-top:4px;display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:11px;font-weight:800;color:#38bdf8;">⚡ Quick Edit & Adjust</span>
+                <span id="quickDur_${c.cid || c.filename.split('_')[0]}" style="font-size:10.5px;font-weight:800;color:#fbbf24;">${c.duration || '30.0'}s</span>
+              </div>
+
+              <!-- Quick Hook & Caption -->
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <div style="display:flex;gap:4px;">
+                  <input type="text" id="quickHook_${c.cid || c.filename.split('_')[0]}" value="${escapeHtml(c.hook || c.title)}" style="flex:1;background:#09090b;border:1px solid #3f3f46;color:#fff;font-size:11px;padding:4px 6px;border-radius:4px;" placeholder="Hook Title">
+                  <button class="btn btn-sm" style="background:#3b82f6;color:#fff;font-size:10px;padding:3px 8px;font-weight:700;" onclick="quickSaveCardHook('${c.stream_key}', '${c.cid || c.filename.split('_')[0]}')">💾 Save</button>
+                </div>
+                <div style="display:flex;gap:4px;">
+                  <input type="text" id="quickCap_${c.cid || c.filename.split('_')[0]}" value="${escapeHtml(c.caption || '')}" style="flex:1;background:#09090b;border:1px solid #3f3f46;color:#fff;font-size:11px;padding:4px 6px;border-radius:4px;" placeholder="Caption text">
+                  <button class="btn btn-sm" style="background:#3b82f6;color:#fff;font-size:10px;padding:3px 8px;font-weight:700;" onclick="quickSaveCardCap('${c.stream_key}', '${c.cid || c.filename.split('_')[0]}')">💾 Save</button>
+                </div>
+              </div>
+
+              <!-- Quick Nudge Bounds -->
+              <div style="background:#09090b;border:1px solid #27272a;border-radius:6px;padding:5px 8px;display:flex;flex-direction:column;gap:4px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:10px;color:#a1a1aa;font-weight:700;">Start Time:</span>
+                  <div style="display:flex;gap:3px;">
+                    <button type="button" class="studio-nudge-btn" onclick="quickNudgeLib('${c.cid || c.filename.split('_')[0]}', 'start', -5)">-5s earlier</button>
+                    <button type="button" class="studio-nudge-btn" onclick="quickNudgeLib('${c.cid || c.filename.split('_')[0]}', 'start', 5)">+5s later</button>
+                  </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:10px;color:#a1a1aa;font-weight:700;">End Time:</span>
+                  <div style="display:flex;gap:3px;">
+                    <button type="button" class="studio-nudge-btn" onclick="quickNudgeLib('${c.cid || c.filename.split('_')[0]}', 'end', -5)">-5s earlier</button>
+                    <button type="button" class="studio-nudge-btn" onclick="quickNudgeLib('${c.cid || c.filename.split('_')[0]}', 'end', 5)">+5s later</button>
+                  </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+                  <span id="quickStatus_${c.cid || c.filename.split('_')[0]}" style="font-size:9.5px;color:#38bdf8;">0s offset</span>
+                  <button id="quickApplyBtn_${c.cid || c.filename.split('_')[0]}" class="btn btn-sm" style="background:#10b981;color:#fff;font-size:10px;padding:2px 8px;font-weight:800;" onclick="quickApplyLibBounds('${c.stream_key}', '${c.cid || c.filename.split('_')[0]}')">✂️ Apply Nudge</button>
+                </div>
+              </div>
+
+              <!-- Quick Preset / Style -->
+              <div style="display:flex;gap:4px;align-items:center;">
+                <select id="quickPreset_${c.cid || c.filename.split('_')[0]}" style="flex:1;background:#09090b;border:1px solid #3f3f46;color:#fff;font-size:10px;padding:3px 6px;border-radius:4px;">
+                  <option value="pop_glow" ${c.preset === 'pop_glow' ? 'selected' : ''}>🌟 Radiant Neon Glow</option>
+                  <option value="bounce" ${c.preset === 'bounce' ? 'selected' : ''}>⚡ Kinetic Bounce</option>
+                  <option value="clean" ${c.preset === 'clean' ? 'selected' : ''}>🤍 Clean Bold</option>
+                  <option value="snap2" ${c.preset === 'snap2' ? 'selected' : ''}>⏱️ Snap 2 (2-Word)</option>
+                </select>
+                <button class="btn btn-sm" style="background:#8b5cf6;color:#fff;font-size:10px;padding:2px 8px;font-weight:700;" onclick="quickSaveCardPreset('${c.stream_key}', '${c.cid || c.filename.split('_')[0]}')">🎨 Style</button>
+              </div>
+            </div>
+
             <button class="btn btn-sm" style="background:#000;color:#fff;width:100%;margin-top:4px;" onclick="openClipEditor('${c.stream_key}', '${c.cid || c.filename.split('_')[0]}')">✂️ Open in Live Video Editor</button>
           </div>
         </div>
@@ -2803,6 +2929,125 @@ async function loadAllClips() {
     `).join('');
   } catch (e) {
     grid.innerHTML = `<div style="color:var(--bad);grid-column:1/-1;text-align:center;padding:40px;">Error loading clips: ${e}</div>`;
+  }
+}
+
+// --- Quick Edit Controls (Direct from Library) ---
+const libNudgeState = {};
+
+function quickNudgeLib(cid, point, delta) {
+  if (!libNudgeState[cid]) {
+    libNudgeState[cid] = { startDelta: 0.0, endDelta: 0.0 };
+  }
+  if (point === 'start') libNudgeState[cid].startDelta += delta;
+  if (point === 'end') libNudgeState[cid].endDelta += delta;
+
+  const statusEl = document.getElementById(`quickStatus_${cid}`);
+  const sD = libNudgeState[cid].startDelta;
+  const eD = libNudgeState[cid].endDelta;
+  const parts = [];
+  if (sD !== 0) parts.push(`Start ${sD > 0 ? '+' : ''}${sD}s`);
+  if (eD !== 0) parts.push(`End ${eD > 0 ? '+' : ''}${eD}s`);
+  if (statusEl) statusEl.innerText = parts.length ? parts.join(', ') : '0s offset';
+}
+
+async function quickApplyLibBounds(streamKey, cid) {
+  const state = libNudgeState[cid];
+  if (!state || (state.startDelta === 0 && state.endDelta === 0)) {
+    return alert('Please click -5s or +5s first to set a start or end offset.');
+  }
+  const btn = document.getElementById(`quickApplyBtn_${cid}`);
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = 'Trimming...';
+  }
+  try {
+    const res = await fetch(`/api/streams/${streamKey}/clips/${cid}/adjust-bounds`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        start_delta: state.startDelta,
+        end_delta: state.endDelta
+      })
+    });
+    const d = await res.json();
+    if (!res.ok || !d.ok) throw new Error(d.detail || 'Trimming failed');
+    delete libNudgeState[cid];
+    alert(`✂️ Clip boundary successfully updated to ${d.duration}s (${d.start} → ${d.end})!`);
+    loadAllClips();
+  } catch (e) {
+    alert('Trim error: ' + (e.message || e));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '✂️ Apply Nudge';
+    }
+  }
+}
+
+async function quickSaveCardHook(streamKey, cid) {
+  const inp = document.getElementById(`quickHook_${cid}`);
+  if (!inp) return;
+  const hook = inp.value.trim();
+  try {
+    const res = await fetch(`/api/streams/${streamKey}/clips/${cid}/save-draft`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hook })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      alert('💾 Hook title saved successfully!');
+      loadAllClips();
+    } else {
+      alert('Error: ' + d.detail);
+    }
+  } catch (e) {
+    alert('Save error: ' + e);
+  }
+}
+
+async function quickSaveCardCap(streamKey, cid) {
+  const inp = document.getElementById(`quickCap_${cid}`);
+  if (!inp) return;
+  const caption = inp.value.trim();
+  try {
+    const res = await fetch(`/api/streams/${streamKey}/clips/${cid}/save-draft`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ caption })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      alert('💾 Caption saved successfully!');
+      loadAllClips();
+    } else {
+      alert('Error: ' + d.detail);
+    }
+  } catch (e) {
+    alert('Save error: ' + e);
+  }
+}
+
+async function quickSaveCardPreset(streamKey, cid) {
+  const sel = document.getElementById(`quickPreset_${cid}`);
+  if (!sel) return;
+  const preset = sel.value;
+  try {
+    const res = await fetch(`/api/streams/${streamKey}/clips/${cid}/save-draft`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preset })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      alert('🎨 Kinetic style saved successfully!');
+      loadAllClips();
+    } else {
+      alert('Error: ' + d.detail);
+    }
+  } catch (e) {
+    alert('Save error: ' + e);
   }
 }
 
@@ -2992,13 +3237,11 @@ function syncCueWords(cue) {
 }
 
 function getStudioCurrentTime() {
-  // In Vertical Stack layout, gameplay video is the master clock
-  if (studioState.layout === 'stack') {
-    const gp = document.getElementById('previewGameplayVideo');
-    if (gp && gp.readyState >= 1) return gp.currentTime;
-  }
   const v = document.getElementById('previewVideo');
-  return (v && v.readyState >= 1) ? v.currentTime : 0;
+  if (v && v.readyState >= 1) return v.currentTime;
+  const gp = document.getElementById('previewGameplayVideo');
+  if (gp && gp.readyState >= 1) return gp.currentTime;
+  return 0;
 }
 
 async function openClipEditor(streamKey, cid) {
@@ -3106,29 +3349,42 @@ async function openClipEditor(streamKey, cid) {
 
     if (titleEl) titleEl.innerText = `🎬 ClipChamp Studio: ${studioState.hook}`;
 
-    // Store both layout video URLs for instant switching
-    studioState.cleanVideoUrl = d.clean_video_url || d.video_url || d.raw_video_url;
-    studioState.peekcutVideoUrl = d.peekcut_video_url || studioState.cleanVideoUrl;
+    // Store reliable video URLs
+    studioState.renderedVideoUrl = d.rendered_video_url || d.video_url;
+    studioState.cleanVideoUrl = d.clean_video_url || d.video_url || studioState.renderedVideoUrl;
+    studioState.peekcutVideoUrl = d.peekcut_video_url || studioState.renderedVideoUrl;
 
     const v = document.getElementById('previewVideo');
     const bg = document.getElementById('previewBgVideo');
     const fc = document.getElementById('previewFacecamVideo');
     const gp = document.getElementById('previewGameplayVideo');
 
+    // The video rendered in the clips library MUST be loaded into previewVideo for 100% reliability
+    const masterSrc = studioState.renderedVideoUrl || studioState.cleanVideoUrl;
     if (v) {
-      v.src = studioState.peekcutVideoUrl || studioState.cleanVideoUrl;
+      v.src = masterSrc;
       v.muted = false;
+      v.style.display = 'block';
+      v.onerror = () => {
+        if (d.video_url && v.src !== d.video_url) {
+          console.warn('Falling back previewVideo to d.video_url:', d.video_url);
+          v.src = d.video_url;
+          v.load();
+        }
+      };
+      v.load();
     }
     if (bg) {
-      bg.src = studioState.peekcutVideoUrl || studioState.cleanVideoUrl;
+      bg.src = masterSrc;
       bg.muted = true;
+      bg.load();
     }
     if (fc) {
-      fc.src = studioState.cleanVideoUrl;
+      fc.src = masterSrc;
       fc.muted = true;
     }
     if (gp) {
-      gp.src = studioState.cleanVideoUrl;
+      gp.src = masterSrc;
       gp.muted = false;
     }
 
@@ -3285,27 +3541,44 @@ function updateClipTrimUI() {
   const baseDur = studioState.duration || 30.0;
   const newDur = Math.max(4.0, baseDur - clipTrimPending.startDelta + clipTrimPending.endDelta);
   const badge = document.getElementById('trimLiveDurationBadge');
+  const inspBadge = document.getElementById('inspTrimLiveDurationBadge');
+  const inspPending = document.getElementById('inspTrimPendingText');
+  const btn = document.getElementById('btnApplyClipTrim');
+  const btnInsp = document.getElementById('btnInspApplyClipTrim');
+
+  const hasDiff = Math.abs(clipTrimPending.startDelta) > 0.01 || Math.abs(clipTrimPending.endDelta) > 0.01;
+  const startStr = clipTrimPending.startDelta !== 0 ? `start ${clipTrimPending.startDelta > 0 ? '+' : ''}${clipTrimPending.startDelta}s` : '';
+  const endStr = clipTrimPending.endDelta !== 0 ? `end ${clipTrimPending.endDelta > 0 ? '+' : ''}${clipTrimPending.endDelta}s` : '';
+  const diffStr = [startStr, endStr].filter(Boolean).join(', ');
+
+  const text = `${newDur.toFixed(1)}s${hasDiff ? ` (${diffStr})` : ''}`;
   if (badge) {
-    const hasDiff = Math.abs(clipTrimPending.startDelta) > 0.01 || Math.abs(clipTrimPending.endDelta) > 0.01;
-    const startStr = clipTrimPending.startDelta !== 0 ? `start ${clipTrimPending.startDelta > 0 ? '+' : ''}${clipTrimPending.startDelta}s` : '';
-    const endStr = clipTrimPending.endDelta !== 0 ? `end ${clipTrimPending.endDelta > 0 ? '+' : ''}${clipTrimPending.endDelta}s` : '';
-    const diffStr = [startStr, endStr].filter(Boolean).join(', ');
-    badge.innerText = `${newDur.toFixed(1)}s${hasDiff ? ` (${diffStr})` : ''}`;
+    badge.innerText = text;
     badge.style.color = hasDiff ? '#38bdf8' : '#fbbf24';
   }
-  const btn = document.getElementById('btnApplyClipTrim');
-  if (btn) {
-    const hasDiff = Math.abs(clipTrimPending.startDelta) > 0.01 || Math.abs(clipTrimPending.endDelta) > 0.01;
-    btn.style.opacity = hasDiff ? '1' : '0.6';
+  if (inspBadge) {
+    inspBadge.innerText = `${newDur.toFixed(1)}s`;
+    inspBadge.style.color = hasDiff ? '#38bdf8' : '#fbbf24';
   }
+  if (inspPending) {
+    inspPending.innerText = hasDiff ? `Pending: ${diffStr}` : 'No changes yet';
+    inspPending.style.color = hasDiff ? '#38bdf8' : '#cbd5e1';
+  }
+  if (btn) btn.style.opacity = hasDiff ? '1' : '0.6';
+  if (btnInsp) btnInsp.style.opacity = hasDiff ? '1' : '0.6';
 }
 
 async function applyClipBoundaryTrim() {
   if (Math.abs(clipTrimPending.startDelta) < 0.01 && Math.abs(clipTrimPending.endDelta) < 0.01) return;
   const btn = document.getElementById('btnApplyClipTrim');
+  const btnInsp = document.getElementById('btnInspApplyClipTrim');
   if (btn) {
     btn.disabled = true;
     btn.innerText = '✂️ Trimming...';
+  }
+  if (btnInsp) {
+    btnInsp.disabled = true;
+    btnInsp.innerText = '✂️ Trimming...';
   }
   try {
     const res = await fetch(`/api/streams/${studioState.streamKey}/clips/${studioState.cid}/adjust-bounds`, {
@@ -3334,6 +3607,16 @@ async function applyClipBoundaryTrim() {
   } catch (err) {
     alert(`Could not adjust clip bounds: ${err.message || err}`);
   } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '✂️ Apply';
+    }
+    if (btnInsp) {
+      btnInsp.disabled = false;
+      btnInsp.innerText = '✂️ Apply Boundary Change';
+    }
+  }
+} finally {
     if (btn) {
       btn.disabled = false;
       btn.innerText = '✂️ Apply';
@@ -3500,17 +3783,25 @@ function setStudioLayout(layoutName, updateDefaults = true) {
   if (btnStack) btnStack.classList.toggle('active', layoutName === 'stack');
 
   // Set active video footage for the selected layout
+  const masterSrc = studioState.renderedVideoUrl || studioState.cleanVideoUrl || studioState.peekcutVideoUrl;
+  if (v && masterSrc && !v.src.endsWith(masterSrc)) {
+    const curT = v.currentTime || 0;
+    const wasPlaying = !v.paused;
+    v.src = masterSrc;
+    v.currentTime = curT;
+    if (wasPlaying) v.play().catch(() => {});
+  }
+
   if (layoutName === 'blur') {
-    const targetSrc = studioState.peekcutVideoUrl || studioState.cleanVideoUrl;
-    if (v && targetSrc && !v.src.endsWith(targetSrc)) {
-      const curT = (gp && gp.currentTime) ? gp.currentTime : (v.currentTime || 0);
-      const wasPlaying = (gp ? !gp.paused : !v.paused);
-      v.src = targetSrc;
-      v.currentTime = curT;
-      if (wasPlaying) v.play().catch(() => {});
+    const targetSrc = studioState.peekcutVideoUrl || studioState.cleanVideoUrl || masterSrc;
+    const bg = document.getElementById('previewBgVideo');
+    if (bg && targetSrc && !bg.src.endsWith(targetSrc)) {
+      bg.src = targetSrc;
+      bg.currentTime = v ? v.currentTime : 0;
+      if (v && !v.paused) bg.play().catch(() => {});
     }
   } else {
-    const cleanSrc = studioState.cleanVideoUrl || studioState.peekcutVideoUrl;
+    const cleanSrc = studioState.cleanVideoUrl || masterSrc;
     if (fc && cleanSrc && !fc.src.endsWith(cleanSrc)) {
       fc.src = cleanSrc;
       fc.muted = true;
@@ -3805,16 +4096,13 @@ function toggleTimelinePlay() {
   const gp = document.getElementById('previewGameplayVideo');
   const ma = document.getElementById('previewMusicAudio');
 
-  const isPaused = studioState.layout === 'stack' ? (gp ? gp.paused : true) : (v ? v.paused : true);
+  const isPaused = v ? v.paused : true;
 
   if (isPaused) {
-    if (studioState.layout === 'stack') {
-      if (fc && fc.src) fc.play().catch(() => {});
-      if (gp && gp.src) gp.play().catch(() => {});
-    } else {
-      if (v && v.src) v.play().catch(() => {});
-      if (bg && bg.src && studioState.layout === 'blur') bg.play().catch(() => {});
-    }
+    if (v && v.src) v.play().catch(() => {});
+    if (bg && bg.src && studioState.layout === 'blur') bg.play().catch(() => {});
+    if (fc && fc.src && studioState.layout === 'stack') fc.play().catch(() => {});
+    if (gp && gp.src && studioState.layout === 'stack') gp.play().catch(() => {});
     if (ma && studioState.music_url) ma.play().catch(() => {});
     startStudioPlayback();
   } else {

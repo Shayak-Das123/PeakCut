@@ -331,9 +331,46 @@ def ensure_clean_video(key: str, cid: str, force: bool = False) -> Optional[Path
 
 
 @app.get("/media/clean/{key}/{cid}.mp4")
+@app.head("/media/clean/{key}/{cid}.mp4")
 def serve_clean_video(key: str, cid: str):
+    d = stream_dir(key)
+    clean_p = d / "render" / cid / "clean.mp4"
+    if clean_p.exists() and clean_p.stat().st_size > 10000:
+        return FileResponse(
+            str(clean_p),
+            media_type="video/mp4",
+            headers={
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600"
+            }
+        )
+    # Instant fallback to rendered clip from d/clips or WORK_DIR/clips
+    for f in (d / "clips").glob("*.mp4"):
+        if match_clip_id(f.stem.split("_")[0], cid) or cid in f.stem:
+            if f.stat().st_size > 10000:
+                return FileResponse(
+                    str(f),
+                    media_type="video/mp4",
+                    headers={
+                        "Accept-Ranges": "bytes",
+                        "Cache-Control": "public, max-age=3600"
+                    }
+                )
+    for c_dir in (WORK_DIR / "clips").glob("*"):
+        if c_dir.is_dir():
+            for f in c_dir.glob("*.mp4"):
+                if match_clip_id(f.stem.split("_")[0], cid) or cid in f.stem:
+                    if f.stat().st_size > 10000:
+                        return FileResponse(
+                            str(f),
+                            media_type="video/mp4",
+                            headers={
+                                "Accept-Ranges": "bytes",
+                                "Cache-Control": "public, max-age=3600"
+                            }
+                        )
     p = ensure_clean_video(key, cid)
-    if not p or not p.exists():
+    if not p or not p.exists() or p.stat().st_size < 10000:
         raise HTTPException(status_code=404, detail="Clean video not found")
     return FileResponse(
         str(p),
@@ -463,9 +500,46 @@ def ensure_peekcut_video(key: str, cid: str, force: bool = False) -> Optional[Pa
 
 
 @app.get("/media/peekcut/{key}/{cid}.mp4")
+@app.head("/media/peekcut/{key}/{cid}.mp4")
 def serve_peekcut_video(key: str, cid: str):
+    d = stream_dir(key)
+    peek_p = d / "render" / cid / "peekcut.mp4"
+    if peek_p.exists() and peek_p.stat().st_size > 10000:
+        return FileResponse(
+            str(peek_p),
+            media_type="video/mp4",
+            headers={
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600"
+            }
+        )
+    # Instant fallback to rendered clip from d/clips or WORK_DIR/clips
+    for f in (d / "clips").glob("*.mp4"):
+        if match_clip_id(f.stem.split("_")[0], cid) or cid in f.stem:
+            if f.stat().st_size > 10000:
+                return FileResponse(
+                    str(f),
+                    media_type="video/mp4",
+                    headers={
+                        "Accept-Ranges": "bytes",
+                        "Cache-Control": "public, max-age=3600"
+                    }
+                )
+    for c_dir in (WORK_DIR / "clips").glob("*"):
+        if c_dir.is_dir():
+            for f in c_dir.glob("*.mp4"):
+                if match_clip_id(f.stem.split("_")[0], cid) or cid in f.stem:
+                    if f.stat().st_size > 10000:
+                        return FileResponse(
+                            str(f),
+                            media_type="video/mp4",
+                            headers={
+                                "Accept-Ranges": "bytes",
+                                "Cache-Control": "public, max-age=3600"
+                            }
+                        )
     p = ensure_peekcut_video(key, cid)
-    if not p or not p.exists():
+    if not p or not p.exists() or p.stat().st_size < 10000:
         raise HTTPException(status_code=404, detail="PeekCut video not found")
     return FileResponse(
         str(p),
@@ -1336,18 +1410,26 @@ def get_clip_editor_data(key: str, cid: str):
 
     # Clean 9:16 vertical video without burned-in subtitles or hook:
     clean_p = d / "render" / actual_cid / "clean.mp4"
-    if not (clean_p.exists() and clean_p.stat().st_size > 10000):
+    if clean_p.exists() and clean_p.stat().st_size < 10000:
+        clean_p.unlink(missing_ok=True)
+        clean_p = None
+
+    if not clean_p or not clean_p.exists():
         clean_p = ensure_clean_video(actual_key, actual_cid)
-    clean_video_url = f"/media/clean/{actual_key}/{actual_cid}.mp4" if (clean_p and clean_p.exists()) else (video_url or raw_video_url)
+    clean_video_url = f"/media/clean/{actual_key}/{actual_cid}.mp4" if (clean_p and clean_p.exists() and clean_p.stat().st_size > 10000) else (video_url or raw_video_url)
 
     # PeekCut 9:16 video (16:9 uncropped centered + blurred background):
     peek_p = d / "render" / actual_cid / "peekcut.mp4"
-    if not (peek_p.exists() and peek_p.stat().st_size > 10000):
-        peek_p = ensure_peekcut_video(actual_key, actual_cid)
-    peekcut_video_url = f"/media/peekcut/{actual_key}/{actual_cid}.mp4" if (peek_p and peek_p.exists()) else clean_video_url
+    if peek_p.exists() and peek_p.stat().st_size < 10000:
+        peek_p.unlink(missing_ok=True)
+        peek_p = None
 
-    # Master editor video URL MUST be the clean vertical stack footage:
-    master_video_url = clean_video_url or video_url or raw_video_url
+    if not peek_p or not peek_p.exists():
+        peek_p = ensure_peekcut_video(actual_key, actual_cid)
+    peekcut_video_url = f"/media/peekcut/{actual_key}/{actual_cid}.mp4" if (peek_p and peek_p.exists() and peek_p.stat().st_size > 10000) else (video_url or clean_video_url)
+
+    # Master editor video URL MUST be the real rendered clip so it always plays immediately:
+    master_video_url = video_url or clean_video_url or raw_video_url
 
     duration = 30.0
     if clean_p and clean_p.exists():
@@ -1609,11 +1691,46 @@ async def upload_clip_music(key: str, cid: str, file: UploadFile = File(...)):
 @app.post("/api/streams/{key}/clips/{cid}/save-draft")
 def save_clip_draft(key: str, cid: str, payload: dict):
     d = stream_dir(key)
-    final_file = d / "final.json"
-    if not final_file.exists():
-        raise HTTPException(status_code=404, detail="final.json not found")
-    final_data = read_json(final_file, {"clips": []})
-    clip = next((c for c in final_data.get("clips", []) if match_clip_id(c.get("id"), cid)), None)
+    actual_key = key
+    clip = None
+    if d.exists():
+        final_file = d / "final.json"
+        if final_file.exists():
+            final_data = read_json(final_file, {"clips": []})
+            clip = next((c for c in final_data.get("clips", []) if match_clip_id(c.get("id"), cid)), None)
+
+    if not clip:
+        for s_dir in (WORK_DIR / "streams").glob("*"):
+            fj = s_dir / "final.json"
+            if fj.exists():
+                c_list = read_json(fj, {}).get("clips", [])
+                match = next((c for c in c_list if match_clip_id(c.get("id"), cid)), None)
+                if match:
+                    clip = match
+                    d = s_dir
+                    actual_key = s_dir.name
+                    final_file = fj
+                    final_data = read_json(final_file, {"clips": []})
+                    break
+
+    if not clip:
+        for c_dir in (WORK_DIR / "clips").glob("*"):
+            if c_dir.is_dir():
+                for mf in c_dir.glob("*.json"):
+                    if not mf.name.endswith(".words.json"):
+                        m = read_json(mf, {})
+                        if match_clip_id(m.get("id"), cid) or match_clip_id(mf.stem.split("_")[0], cid):
+                            s_name = m.get("stream")
+                            if s_name and (WORK_DIR / "streams" / s_name).exists():
+                                d = WORK_DIR / "streams" / s_name
+                                actual_key = s_name
+                                final_file = d / "final.json"
+                                final_data = read_json(final_file, {"clips": []}) if final_file.exists() else {"clips": []}
+                                clip = next((c for c in final_data.get("clips", []) if match_clip_id(c.get("id"), cid)), m)
+                                break
+            if clip:
+                break
+
     if not clip:
         raise HTTPException(status_code=404, detail="Clip not found")
 
@@ -1621,6 +1738,7 @@ def save_clip_draft(key: str, cid: str, payload: dict):
 
     if "hook" in payload:
         clip["hook"] = (payload["hook"] or "").strip()
+        clip["title"] = clip["hook"]
     if "caption" in payload:
         clip["caption"] = (payload["caption"] or "").strip()
     if "layout" in payload and payload["layout"]:
@@ -1665,7 +1783,27 @@ def save_clip_draft(key: str, cid: str, payload: dict):
         write_json(existing_words_file, payload["words"])
         clip["custom_words"] = payload["words"]
 
-    write_json(final_file, final_data)
+    if 'final_file' in locals() and final_file.exists():
+        write_json(final_file, final_data)
+
+    # Also update sidecar metadata in stream clips and dated clips
+    for c_dir in [d / "clips"] + list((WORK_DIR / "clips").glob("*")):
+        if c_dir.exists() and c_dir.is_dir():
+            for mf in c_dir.glob("*.json"):
+                if not mf.name.endswith(".words.json"):
+                    m = read_json(mf, {})
+                    if match_clip_id(m.get("id"), actual_cid) or match_clip_id(mf.stem.split("_")[0], actual_cid):
+                        if "hook" in payload:
+                            m["hook"] = clip["hook"]
+                            m["title"] = clip["hook"]
+                        if "caption" in payload:
+                            m["caption"] = clip["caption"]
+                        if "preset" in payload:
+                            m["preset"] = clip["preset"]
+                        if "layout" in payload:
+                            m["layout"] = clip["layout"]
+                        write_json(mf, m)
+
     return {"ok": True, "message": "Draft saved successfully!"}
 
 
