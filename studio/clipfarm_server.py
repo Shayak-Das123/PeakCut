@@ -687,6 +687,15 @@ def list_all_clips():
                 if f_clip.get("hashtags"):
                     meta["hashtags"] = f_clip["hashtags"]
         
+        # Expose clean (no burned text) video URL so the library preview matches
+        # exactly what loads in the editor — same source, no confusion.
+        clean_p = None
+        if stream_name:
+            _cp = WORK_DIR / "streams" / stream_name / "clean" / f"{cid_val}.mp4"
+            if _cp.exists() and _cp.stat().st_size > 10000:
+                clean_p = _cp
+        clean_video_url = f"/media/clean/{stream_name}/{cid_val}.mp4" if clean_p else f"/media/video/{f.name}"
+
         clips.append({
             "filename": f.name,
             "stream_key": effective_stream_key,
@@ -698,6 +707,7 @@ def list_all_clips():
             "hashtags": meta.get("hashtags") or [],
             "post_text": txt,
             "video_url": f"/media/video/{f.name}",
+            "clean_video_url": clean_video_url,
             "download_url": f"/api/download/{f.name}",
             "thumb_url": f"/media/thumb/{thumb.name}" if thumb.exists() else None,
             "facecam_url": f"/media/thumb/{facecam.name}" if facecam.exists() else None,

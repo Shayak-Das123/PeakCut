@@ -2924,8 +2924,13 @@ function syncCueWords(cue) {
 }
 
 function getStudioCurrentTime() {
+  // In Vertical Stack layout, gameplay video is the master clock
+  if (studioState.layout === 'stack') {
+    const gp = document.getElementById('previewGameplayVideo');
+    if (gp && gp.readyState >= 1) return gp.currentTime;
+  }
   const v = document.getElementById('previewVideo');
-  return v ? v.currentTime : 0;
+  return (v && v.readyState >= 1) ? v.currentTime : 0;
 }
 
 async function openClipEditor(streamKey, cid) {
@@ -3575,14 +3580,25 @@ function studioPlaybackLoop() {
   if (!studioState.isPlaying) return;
   const t = getStudioCurrentTime();
   updateStudioTime(t);
+
+  // Auto-stop when video reaches the end
+  if (t >= studioState.duration - 0.05) {
+    stopStudioPlayback();
+    return;
+  }
+
   studioAnimFrameId = requestAnimationFrame(studioPlaybackLoop);
 }
 
 function startStudioPlayback() {
+  // Guard: cancel any existing loop before starting a new one
+  if (studioAnimFrameId) {
+    cancelAnimationFrame(studioAnimFrameId);
+    studioAnimFrameId = null;
+  }
   studioState.isPlaying = true;
   const btn = document.getElementById('timelineBtnPlay');
   if (btn) btn.innerText = '⏸';
-  if (studioAnimFrameId) cancelAnimationFrame(studioAnimFrameId);
   studioAnimFrameId = requestAnimationFrame(studioPlaybackLoop);
 }
 
@@ -4535,37 +4551,19 @@ window.closeModal = closeStudioModal;
 function initStudioPlayerEvents() {
   const v = document.getElementById('previewVideo');
   const gp = document.getElementById('previewGameplayVideo');
+  const fc = document.getElementById('previewFacecamVideo');
+
+  // Only attach 'ended' — RAF loop is exclusively managed by toggleTimelinePlay.
+  // play/pause events must NOT start/stop RAF or we get duplicate loops that
+  // lock captions at t=0 and blink the same words forever.
   if (v) {
-    v.addEventListener('play', () => {
-      if (studioState.layout === 'blur') startStudioPlayback();
-    });
-    v.addEventListener('pause', () => {
-      if (studioState.layout === 'blur' && !studioState.isPlaying) stopStudioPlayback();
-    });
-    v.addEventListener('timeupdate', () => {
-      if (studioState.layout === 'blur') {
-        updateStudioTime(v.currentTime);
-      }
-    });
-    v.addEventListener('ended', () => {
-      stopStudioPlayback();
-    });
+    v.addEventListener('ended', () => stopStudioPlayback());
   }
   if (gp) {
-    gp.addEventListener('play', () => {
-      if (studioState.layout === 'stack') startStudioPlayback();
-    });
-    gp.addEventListener('pause', () => {
-      if (studioState.layout === 'stack' && !studioState.isPlaying) stopStudioPlayback();
-    });
-    gp.addEventListener('timeupdate', () => {
-      if (studioState.layout === 'stack') {
-        updateStudioTime(gp.currentTime);
-      }
-    });
-    gp.addEventListener('ended', () => {
-      stopStudioPlayback();
-    });
+    gp.addEventListener('ended', () => stopStudioPlayback());
+  }
+  if (fc) {
+    fc.addEventListener('ended', () => stopStudioPlayback());
   }
 
   initHookBlockInteractions();
