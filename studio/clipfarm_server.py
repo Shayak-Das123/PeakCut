@@ -2075,7 +2075,7 @@ Generate high-converting, viral packaging for this clip:
 
 def _run_ai_curation(key: str):
     d = stream_dir(key)
-    ACTIVE_JOBS[key] = {"action": "ai_curation", "progress": "Analyzing chunks and picking viral moments..."}
+    ACTIVE_JOBS[key] = {"action": "ai_curation", "progress": "Analyzing semantic transcript & narrative setup-payoff arcs..."}
     try:
         st = read_json(d / "state.json", {})
         chunks_count = st.get("chunks", 0)
@@ -2083,7 +2083,41 @@ def _run_ai_curation(key: str):
         picks_dir.mkdir(parents=True, exist_ok=True)
         info = read_json(d / "info.json", {})
         streamer = info.get("streamer") or "Streamer"
+        total_dur = float(info.get("duration") or 3600.0)
 
+        # 1. Load full semantic transcript and sentence lines
+        from studio import brain
+        segs = read_json(d / "segments.json", [])
+        speech_segs = [s for s in segs if s.get("kind") == "speech" and s.get("text", "").strip()]
+
+        tr_data = read_json(d / "transcript.json", {})
+        stream_words = tr_data.get("words", [])
+        if not stream_words:
+            # Check sherpa / whisper transcription tokens format
+            for seg in tr_data.get("transcription", []):
+                for tok in seg.get("tokens", []):
+                    w_txt = (tok.get("text") or "").strip()
+                    offs = tok.get("offsets") or {}
+                    if w_txt and "from" in offs and "to" in offs:
+                        stream_words.append({
+                            "w": w_txt,
+                            "s": round(offs["from"] / 1000.0, 2),
+                            "e": round(offs["to"] / 1000.0, 2)
+                        })
+        if not stream_words:
+            for s in speech_segs:
+                words_in_seg = s.get("text", "").split()
+                s_t = s.get("s", 0)
+                e_t = s.get("e", s_t + 1)
+                step = (e_t - s_t) / max(1, len(words_in_seg))
+                for idx, w in enumerate(words_in_seg):
+                    stream_words.append({
+                        "w": w,
+                        "s": round(s_t + idx * step, 2),
+                        "e": round(s_t + (idx + 1) * step, 2)
+                    })
+
+        # 2. Process chunks with dialogue-first semantic snapping
         for i in range(1, chunks_count + 1):
             chunk_file = d / "chunks" / f"chunk_{i:02d}.md"
             out_file = picks_dir / f"chunk_{i:02d}.json"
@@ -2097,34 +2131,71 @@ def _run_ai_curation(key: str):
                     if m:
                         t_str = m.group(1)
                         t_sec = util.parse_t(t_str)
-                        start_sec = max(0, t_sec - 10)
-                        end_sec = t_sec + 22
+
+                        # Look for narrative setup (speech starting 6-14s before peak)
+                        setup_seg = next((s for s in reversed(speech_segs) if (t_sec - 14) <= s.get("s", 0) <= (t_sec - 2)), None)
+                        raw_start = setup_seg.get("s", t_sec - 8) if setup_seg else max(0.0, t_sec - 8)
+
+                        # Look for narrative payoff (speech ending 6-18s after peak)
+                        payoff_seg = next((s for s in speech_segs if (t_sec + 4) <= s.get("e", 0) <= (t_sec + 22)), None)
+                        raw_end = payoff_seg.get("e", t_sec + 18) if payoff_seg else min(total_dur, t_sec + 18)
+
+                        # Use brain._snap to align to sentence start and end with natural breathing tail
+                        snap_s, snap_e = brain._snap(
+                            {"start": raw_start, "end": raw_end},
+                            speech_segs,
+                            stream_words,
+                            min_len=18.0,
+                            max_len=55.0,
+                            duration=total_dur
+                        )
+                        if snap_e <= snap_s:
+                            snap_s, snap_e = raw_start, raw_end
+
+                        # Extract actual dialogue spoken in this semantic moment
+                        moment_dialogue = " ".join(
+                            s["text"] for s in speech_segs if snap_s <= s.get("s", 0) <= snap_e
+                        ).strip()
+
                         hot_moments.append({
-                            "start": util.hms(start_sec),
-                            "end": util.hms(end_sec),
+                            "start": util.hms(snap_s),
+                            "end": util.hms(snap_e),
                             "peak": t_str,
                             "type": "discovery" if "🔥🔥" in line else "funny",
-                            "score": 90 if "🔥🔥" in line else 78,
+                            "score": 95 if ("🔥🔥" in line and len(moment_dialogue) > 20) else 82,
                             "standalone": True,
-                            "title": f"{streamer} reaction",
-                            "why": "High audience spike detected in audio loudness."
+                            "title": f"{streamer} highlight",
+                            "dialogue": moment_dialogue,
+                            "why": "Setup & payoff peak with narrative sentence boundaries."
                         })
-            write_json(out_file, {"chunk": i, "moments": hot_moments[:2]})
+            write_json(out_file, {"chunk": i, "moments": hot_moments[:3]})
 
-        ACTIVE_JOBS[key]["progress"] = "Shortlisting best candidates & generating viral AI hooks..."
+        ACTIVE_JOBS[key]["progress"] = "Shortlisting best narrative candidates & generating viral AI hooks..."
         kept = shortlist.build(d, top=10)
         final_clips = []
-        segs = read_json(d / "segments.json", [])
         for cand in kept[:6]:
             s_val = cand.get("start", 0)
             e_val = cand.get("end", s_val + 35)
-            # Find dialogue spoken in this moment
-            spoken = [x["text"] for x in segs if x.get("kind") == "speech" and s_val <= x.get("s", 0) <= e_val]
+            s_sec = util.parse_t(s_val) if isinstance(s_val, str) else float(s_val)
+            e_sec = util.parse_t(e_val) if isinstance(e_val, str) else float(e_val)
+
+            # Snap to sentence boundaries if needed
+            s_sec, e_sec = brain._snap(
+                {"start": s_sec, "end": e_sec},
+                speech_segs,
+                stream_words,
+                min_len=18.0,
+                max_len=55.0,
+                duration=total_dur
+            )
+
+            # Find dialogue spoken in this snapped moment
+            spoken = [x["text"] for x in speech_segs if s_sec <= x.get("s", 0) <= e_sec]
             dialogue = " ".join(spoken).strip()
-            
-            why_info = cand.get("why_signals") or cand.get("why") or "Excitement peak"
-            
-            # Use REAL Gemini / Claude AI brain for viral packaging!
+
+            why_info = cand.get("why_signals") or cand.get("why") or "Excitement & punchline peak"
+
+            # Use AI brain / agent for viral packaging
             ai_pkg = generate_ai_clip_hook_and_caption(
                 streamer=streamer,
                 stream_title=info.get("title") or "",
@@ -2135,9 +2206,9 @@ def _run_ai_curation(key: str):
 
             final_clips.append({
                 "id": cand.get("id") or f"c{len(final_clips)+1:02d}",
-                "start": s_val,
-                "end": e_val,
-                "peak": cand.get("peak") or s_val,
+                "start": util.hms(s_sec),
+                "end": util.hms(e_sec),
+                "peak": cand.get("peak") or util.hms(s_sec),
                 "type": cand.get("type", "highlight"),
                 "score": cand.get("score", 90),
                 "hook": ai_pkg["hook"],
