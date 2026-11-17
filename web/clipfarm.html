@@ -1595,7 +1595,13 @@ video::backdrop {
           🔴 Live Auto-Clip
         </button>
       </div>
-      <button class="btn btn-outline" onclick="fetchStatus()">Refresh</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="btnGlobalPauseGpu" class="btn btn-outline" style="border-color:#F59E0B;color:#B45309;background:#FFFBEB;font-weight:700;display:flex;align-items:center;gap:6px;" onclick="toggleGlobalGpuPause()" title="Pause all GPU pipelines, release NVENC and free VRAM">
+          <span id="globalGpuPauseIcon">⏸️</span>
+          <span id="globalGpuPauseText">Pause GPU</span>
+        </button>
+        <button class="btn btn-outline" onclick="fetchStatus()">Refresh</button>
+      </div>
     </header>
 
     <!-- LIVE STREAM CONTINUOUS CATCH-UP & ROLLING CLIPPER PANEL -->
@@ -2477,6 +2483,7 @@ async function fetchStatus() {
   }
   checkLiveStatus();
   loadStreams();
+  updateGlobalPauseButton();
 }
 
 function formatHms(sec) {
@@ -2503,6 +2510,7 @@ async function loadStreams() {
     }
     list.innerHTML = streams.map(s => {
       const isProcessing = s.job && !s.job.done;
+      const isPaused = s.job && (s.job.paused || s.job.action === 'paused');
       const pct = (s.job && s.job.pct !== undefined) ? s.job.pct : (s.job && s.job.transcribe_pct ? Math.round(s.job.transcribe_pct) : null);
       const audioDown = (s.job && s.job.audio_downloaded_hms) ? s.job.audio_downloaded_hms : (s.duration_hms || 'Ready');
       const audioMb = (s.job && s.job.audio_downloaded_mb) ? `${s.job.audio_downloaded_mb} MB` : '';
@@ -2526,26 +2534,35 @@ async function loadStreams() {
         </div>
 
         ${isProcessing ? `
-          <div style="background:#FFF9C4;border-left:3px solid #F57F17;padding:8px 10px;border-radius:4px;display:flex;flex-direction:column;gap:5px;">
-            <div style="font-size:11.5px;color:#D84315;font-weight:700;display:flex;align-items:center;justify-content:space-between;">
+          <div style="background:${isPaused ? '#FFFBEB' : '#FFF9C4'};border-left:3px solid ${isPaused ? '#F59E0B' : '#F57F17'};padding:8px 10px;border-radius:4px;display:flex;flex-direction:column;gap:5px;">
+            <div style="font-size:11.5px;color:${isPaused ? '#B45309' : '#D84315'};font-weight:700;display:flex;align-items:center;justify-content:space-between;">
               <span style="display:flex;align-items:center;gap:6px;">
-                <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#D84315;animation:pulse 1s infinite;"></span>
-                ${escapeHtml(s.job.progress || 'Processing pipeline...')}
+                <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${isPaused ? '#F59E0B' : '#D84315'};${isPaused ? '' : 'animation:pulse 1s infinite;'}"></span>
+                ${isPaused ? '⏸️ Paused (GPU Freed)' : escapeHtml(s.job.progress || 'Processing pipeline...')}
               </span>
-              <span style="font-weight:800;color:#E65100;">${pct !== null ? pct + '%' : ''}</span>
+              <span style="font-weight:800;color:${isPaused ? '#B45309' : '#E65100'};">${pct !== null ? pct + '%' : ''}</span>
             </div>
             ${pct !== null ? `
-              <div style="width:100%;height:6px;background:#FFE082;border-radius:3px;overflow:hidden;">
-                <div style="width:${pct}%;height:100%;background:#E65100;transition:width 0.3s ease;"></div>
+              <div style="width:100%;height:6px;background:${isPaused ? '#FDE68A' : '#FFE082'};border-radius:3px;overflow:hidden;">
+                <div style="width:${pct}%;height:100%;background:${isPaused ? '#D97706' : '#E65100'};transition:width 0.3s ease;"></div>
               </div>
             ` : ''}
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#555;flex-wrap:wrap;gap:4px;">
               <span>🎧 Audio: <b>${audioMb ? audioMb + ' · ' : ''}${audioDown}</b></span>
               <span>📝 Transcribed: <b>${transHms || (pct !== null ? pct + '%' : 'Processing')}</b></span>
             </div>
-            <div style="display:flex;justify-content:flex-end;margin-top:3px;">
-              <button class="btn btn-sm btn-outline" style="border-color:#D84315;color:#D84315;background:#fff;padding:2px 10px;font-size:11px;font-weight:700;" onclick="event.stopPropagation();stopStreamProcessing('${s.key}')">
-                ⏹️ Stop Creating
+            <div style="display:flex;justify-content:flex-end;gap:5px;margin-top:3px;">
+              ${isPaused ? `
+                <button class="btn btn-sm" style="background:#10B981;color:#fff;padding:2px 8px;font-size:10.5px;font-weight:700;" onclick="event.stopPropagation();resumeStreamProcessing('${s.key}')">
+                  ▶️ Resume
+                </button>
+              ` : `
+                <button class="btn btn-sm btn-outline" style="border-color:#F59E0B;color:#B45309;background:#FFFBEB;padding:2px 8px;font-size:10.5px;font-weight:700;" onclick="event.stopPropagation();pauseStreamProcessing('${s.key}')">
+                  ⏸️ Pause
+                </button>
+              `}
+              <button class="btn btn-sm btn-outline" style="border-color:#D84315;color:#D84315;background:#fff;padding:2px 8px;font-size:10.5px;font-weight:700;" onclick="event.stopPropagation();stopStreamProcessing('${s.key}')">
+                ⏹️ Stop
               </button>
             </div>
           </div>
@@ -2588,6 +2605,7 @@ function renderStreamDetail(d, isBackgroundUpdate = false) {
   const finalClips = (d.final && d.final.clips) || [];
   const renderedClips = d.clips || [];
   const isProcessing = d.job && !d.job.done && d.job.action !== 'stopped';
+  const isPaused = d.job && (d.job.paused || d.job.action === 'paused');
   const action = (d.job && d.job.action) ? d.job.action.toLowerCase() : '';
   const isRender = action === 'render';
   const isTranscribe = action === 'transcribe' || action === 'listen';
@@ -2638,14 +2656,23 @@ function renderStreamDetail(d, isBackgroundUpdate = false) {
 
       <!-- ACTIVE PIPELINE DETAILED DASHBOARD CARD -->
       ${isProcessing ? `
-        <div id="activePipelineCard" style="background:#FFFDE7;border:1.5px solid #FBC02D;border-radius:var(--r-sm);padding:16px 18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+        <div id="activePipelineCard" style="background:${isPaused ? '#FFFBEB' : '#FFFDE7'};border:1.5px solid ${isPaused ? '#F59E0B' : '#FBC02D'};border-radius:var(--r-sm);padding:16px 18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-            <b style="color:#D84315;font-size:13.5px;display:flex;align-items:center;gap:8px;">
-              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#D84315;animation:pulse 1s infinite;"></span>
-              ACTIVE PIPELINE: ${(d.job && d.job.action ? d.job.action.toUpperCase() : 'PROCESSING')}
+            <b style="color:${isPaused ? '#B45309' : '#D84315'};font-size:13.5px;display:flex;align-items:center;gap:8px;">
+              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${isPaused ? '#F59E0B' : '#D84315'};${isPaused ? '' : 'animation:pulse 1s infinite;'}"></span>
+              ${isPaused ? '⏸️ PIPELINE PAUSED (GPU VRAM Freed · Checkpoint Saved)' : `ACTIVE PIPELINE: ${(d.job && d.job.action ? d.job.action.toUpperCase() : 'PROCESSING')}`}
             </b>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span style="font-weight:800;font-size:15px;color:#D84315;">${pct !== null ? pct + '%' : ''}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:800;font-size:15px;color:${isPaused ? '#B45309' : '#D84315'};">${pct !== null ? pct + '%' : ''}</span>
+              ${isPaused ? `
+                <button class="btn btn-sm" style="background:#10B981;color:#fff;padding:4px 14px;font-weight:800;font-size:12px;cursor:pointer;border:none;border-radius:6px;" onclick="resumeStreamProcessing('${d.key}')">
+                  ▶️ Resume Pipeline
+                </button>
+              ` : `
+                <button class="btn btn-sm btn-outline" style="border-color:#F59E0B;color:#B45309;background:#FFFBEB;padding:4px 12px;font-weight:800;font-size:12px;cursor:pointer;" onclick="pauseStreamProcessing('${d.key}')">
+                  ⏸️ Pause GPU
+                </button>
+              `}
               <button id="btnStopCreating" class="btn btn-sm btn-outline" style="border-color:#D84315;color:#D84315;background:#fff;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;" onclick="stopStreamProcessing('${d.key}')">
                 ⏹️ Stop Creating
               </button>
@@ -2654,8 +2681,8 @@ function renderStreamDetail(d, isBackgroundUpdate = false) {
           <div style="font-size:13px;color:#222;font-weight:600;">${escapeHtml(d.job && d.job.progress ? d.job.progress : 'Processing stream pipeline...')}</div>
           
           ${pct !== null ? `
-            <div style="width:100%;height:10px;background:#FFE082;border-radius:5px;overflow:hidden;">
-              <div style="width:${pct}%;height:100%;background:#E65100;transition:width 0.4s ease;"></div>
+            <div style="width:100%;height:10px;background:${isPaused ? '#FDE68A' : '#FFE082'};border-radius:5px;overflow:hidden;">
+              <div style="width:${pct}%;height:100%;background:${isPaused ? '#D97706' : '#E65100'};transition:width 0.4s ease;"></div>
             </div>
           ` : ''}
 
@@ -5134,6 +5161,102 @@ async function resumeStream(key) {
   } catch (e) {
     alert('Error resuming stream: ' + e);
   }
+}
+
+async function pauseStreamProcessing(key) {
+  try {
+    const res = await fetch(`/api/streams/${key}/pause`, { method: 'POST' });
+    const d = await res.json();
+    alert('⏸️ Stream pipeline paused! GPU VRAM and NVENC resources freed. Progress is safely saved.');
+    await fetchStatus();
+    await selectStream(key);
+    updateGlobalPauseButton();
+  } catch (e) {
+    alert('Error pausing stream: ' + e);
+  }
+}
+
+async function resumeStreamProcessing(key) {
+  try {
+    const res = await fetch(`/api/streams/${key}/resume`, { method: 'POST' });
+    const d = await res.json();
+    alert(d.message || '▶️ Resumed stream pipeline from saved checkpoint (skipping completed clips)!');
+    await fetchStatus();
+    await selectStream(key);
+    updateGlobalPauseButton();
+  } catch (e) {
+    alert('Error resuming stream: ' + e);
+  }
+}
+
+let isGlobalGpuPaused = false;
+
+async function toggleGlobalGpuPause() {
+  const btn = document.getElementById('btnGlobalPauseGpu');
+  const icon = document.getElementById('globalGpuPauseIcon');
+  const text = document.getElementById('globalGpuPauseText');
+
+  try {
+    if (!isGlobalGpuPaused) {
+      if (btn) btn.disabled = true;
+      const res = await fetch('/api/pipeline/pause', { method: 'POST' });
+      const d = await res.json();
+      isGlobalGpuPaused = true;
+      if (btn) {
+        btn.style.borderColor = '#10B981';
+        btn.style.color = '#fff';
+        btn.style.background = '#10B981';
+      }
+      if (icon) icon.innerText = '▶️';
+      if (text) text.innerText = 'Resume GPU';
+      alert('⏸️ All GPU pipelines paused!\n\n• ffmpeg and NVENC encoder contexts terminated\n• GPU VRAM freed for your games\n• All stream progress is safely saved at current checkpoint');
+    } else {
+      if (btn) btn.disabled = true;
+      const res = await fetch('/api/pipeline/resume', { method: 'POST' });
+      const d = await res.json();
+      isGlobalGpuPaused = false;
+      if (btn) {
+        btn.style.borderColor = '#F59E0B';
+        btn.style.color = '#B45309';
+        btn.style.background = '#FFFBEB';
+      }
+      if (icon) icon.innerText = '⏸️';
+      if (text) text.innerText = 'Pause GPU';
+      alert('▶️ GPU pipelines resumed!\n\nProcessing continues from saved checkpoints without starting over.');
+    }
+    await fetchStatus();
+    if (activeKey) await selectStream(activeKey);
+  } catch (e) {
+    alert('GPU Pause/Resume error: ' + e);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function updateGlobalPauseButton() {
+  try {
+    const res = await fetch('/api/pipeline/status');
+    const d = await res.json();
+    isGlobalGpuPaused = d.paused;
+    const btn = document.getElementById('btnGlobalPauseGpu');
+    const icon = document.getElementById('globalGpuPauseIcon');
+    const text = document.getElementById('globalGpuPauseText');
+    if (btn) {
+      if (isGlobalGpuPaused) {
+        btn.style.borderColor = '#10B981';
+        btn.style.color = '#fff';
+        btn.style.background = '#10B981';
+        if (icon) icon.innerText = '▶️';
+        if (text) text.innerText = 'Resume GPU';
+      } else {
+        btn.style.borderColor = '#F59E0B';
+        btn.style.color = '#B45309';
+        btn.style.background = '#FFFBEB';
+        if (icon) icon.innerText = '⏸️';
+        if (text) text.innerText = 'Pause GPU';
+      }
+    }
+  } catch (e) {}
 }
 
 async function stopStreamProcessing(key) {

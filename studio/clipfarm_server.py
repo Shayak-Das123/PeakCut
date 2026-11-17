@@ -314,12 +314,16 @@ def ensure_clean_video(key: str, cid: str, force: bool = False) -> Optional[Path
             ]
             res = subprocess.run(cmd, capture_output=True)
             if res.returncode != 0:
-                cmd[10] = "libx264"
-                cmd[11] = "-preset"
-                cmd[12] = "fast"
-                subprocess.run(cmd, check=False)
+                v_idx = cmd.index("-c:v") if "-c:v" in cmd else -1
+                if v_idx != -1:
+                    cmd[v_idx + 1] = "libx264"
+                    cmd[v_idx + 2] = "-preset"
+                    cmd[v_idx + 3] = "fast"
+                    subprocess.run(cmd, check=False)
             if clean_p.exists() and clean_p.stat().st_size > 10000:
                 return clean_p
+            elif clean_p.exists():
+                clean_p.unlink(missing_ok=True)
         except Exception as ex:
             print(f"Error ensuring clean video for {key}/{cid}:", ex)
 
@@ -2708,6 +2712,190 @@ def _run_scan_thread(url: str, force_live: bool = False):
         ACTIVE_JOBS[url] = {"action": "scan", "error": str(e), "failed": True}
 
 
+PAUSED_PIPELINE: bool = False
+PAUSED_JOBS_CHECKPOINTS: dict[str, dict] = {}
+
+
+@app.post("/api/pipeline/pause")
+def pause_all_pipelines():
+    """
+    Globally pauses all active AI/GPU pipelines, speech transcription, rendering, and watcher daemons.
+    Frees all GPU resources immediately while preserving all progress.
+    """
+    global PAUSED_PIPELINE
+    PAUSED_PIPELINE = True
+
+    try:
+        from studio import watched_creators
+        watched_creators.stop_watcher_daemon()
+    except Exception:
+        pass
+
+    paused_streams = []
+    for key, job in list(ACTIVE_JOBS.items()):
+        CANCEL_JOBS.add(key)
+        d = stream_dir(key)
+        if d.exists():
+            prog_file = d / "progress.json"
+            current_prog = read_json(prog_file, {}) if prog_file.exists() else job
+            paused_state = {
+                "action": "paused",
+                "paused_stage": current_prog.get("action", "processing"),
+                "progress": "⏸️ Pipeline paused by user · GPU VRAM & NVENC freed · Progress saved",
+                "pct": current_prog.get("pct", 0),
+                "clip_current": current_prog.get("clip_current", 1),
+                "clip_total": current_prog.get("clip_total", 6),
+                "paused": True,
+                "updated_at": time.time(),
+                "done": False
+            }
+            PAUSED_JOBS_CHECKPOINTS[key] = paused_state
+            write_json(prog_file, paused_state)
+            ACTIVE_JOBS[key] = paused_state
+            paused_streams.append(key)
+
+    for s_dir in (WORK_DIR / "streams").glob("*"):
+        prog_f = s_dir / "progress.json"
+        if prog_f.exists():
+            cur = read_json(prog_f, {})
+            if not cur.get("done") and cur.get("action") not in ("done", "stopped"):
+                paused_state = {
+                    "action": "paused",
+                    "paused_stage": cur.get("action", "processing"),
+                    "progress": "⏸️ Pipeline paused by user · GPU VRAM & NVENC freed · Progress saved",
+                    "pct": cur.get("pct", 0),
+                    "clip_current": cur.get("clip_current", 1),
+                    "clip_total": cur.get("clip_total", 6),
+                    "paused": True,
+                    "updated_at": time.time(),
+                    "done": False
+                }
+                PAUSED_JOBS_CHECKPOINTS[s_dir.name] = paused_state
+                write_json(prog_f, paused_state)
+                ACTIVE_JOBS[s_dir.name] = paused_state
+                if s_dir.name not in paused_streams:
+                    paused_streams.append(s_dir.name)
+
+    for lk, sess in list(ACTIVE_LIVE_SESSIONS.items()):
+        try:
+            if hasattr(sess, "stop"):
+                sess.stop("Paused by user")
+        except Exception:
+            pass
+
+    try:
+        subprocess.run(["taskkill", "/F", "/IM", "ffmpeg.exe"], capture_output=True, check=False)
+    except Exception:
+        pass
+
+    return {
+        "ok": True,
+        "paused": True,
+        "message": "All GPU pipelines paused! NVENC and GPU memory freed. All progress is saved.",
+        "paused_streams": paused_streams
+    }
+
+
+@app.post("/api/pipeline/resume")
+def resume_all_pipelines(background_tasks: BackgroundTasks):
+    """
+    Resumes paused pipelines from their exact saved checkpoint without starting over.
+    """
+    global PAUSED_PIPELINE
+    PAUSED_PIPELINE = False
+
+    try:
+        from studio import watched_creators
+        watched_creators.start_watcher_daemon()
+    except Exception:
+        pass
+
+    resumed_streams = []
+    for s_dir in (WORK_DIR / "streams").glob("*"):
+        prog_f = s_dir / "progress.json"
+        if prog_f.exists():
+            cur = read_json(prog_f, {})
+            if cur.get("paused") or cur.get("action") == "paused":
+                key = s_dir.name
+                CANCEL_JOBS.discard(key)
+                paused_stage = cur.get("paused_stage", "render")
+
+                info = read_json(s_dir / "info.json", {})
+                url = info.get("url")
+
+                if paused_stage in ("render", "curate") or (s_dir / "final.json").exists() or (s_dir / "clips").exists():
+                    cur["action"] = "render"
+                    cur["progress"] = "Resuming clip rendering on RTX 4050 GPU NVENC..."
+                    cur["paused"] = False
+                    cur["done"] = False
+                    write_json(prog_f, cur)
+                    ACTIVE_JOBS[key] = cur
+                    background_tasks.add_task(_run_render_stream, key)
+                    resumed_streams.append(key)
+                elif url:
+                    cur["action"] = "scan"
+                    cur["progress"] = "Resuming stream processing..."
+                    cur["paused"] = False
+                    cur["done"] = False
+                    write_json(prog_f, cur)
+                    ACTIVE_JOBS[key] = cur
+                    background_tasks.add_task(_run_scan_thread, url)
+                    resumed_streams.append(key)
+
+    return {
+        "ok": True,
+        "paused": False,
+        "message": f"Resumed {len(resumed_streams)} pipeline(s) from saved checkpoint!",
+        "resumed_streams": resumed_streams
+    }
+
+
+@app.get("/api/pipeline/status")
+def get_pipeline_status():
+    paused_count = 0
+    active_count = 0
+    for s_dir in (WORK_DIR / "streams").glob("*"):
+        prog_f = s_dir / "progress.json"
+        if prog_f.exists():
+            cur = read_json(prog_f, {})
+            if cur.get("paused") or cur.get("action") == "paused":
+                paused_count += 1
+            elif not cur.get("done") and cur.get("action") and cur.get("action") not in ("done", "stopped"):
+                active_count += 1
+    return {
+        "paused": PAUSED_PIPELINE or paused_count > 0,
+        "paused_count": paused_count,
+        "active_count": active_count
+    }
+
+
+@app.post("/api/streams/{key}/pause")
+def pause_stream_processing(key: str):
+    CANCEL_JOBS.add(key)
+    d = stream_dir(key)
+    prog_p = d / "progress.json"
+    cur = read_json(prog_p, {}) if prog_p.exists() else {}
+    paused_state = {
+        "action": "paused",
+        "paused_stage": cur.get("action", "render"),
+        "progress": "⏸️ Pipeline paused by user · GPU VRAM & NVENC freed · Progress saved",
+        "pct": cur.get("pct", 50),
+        "clip_current": cur.get("clip_current", 1),
+        "clip_total": cur.get("clip_total", 6),
+        "paused": True,
+        "updated_at": time.time(),
+        "done": False
+    }
+    ACTIVE_JOBS[key] = paused_state
+    if d.exists():
+        write_json(prog_p, paused_state)
+    try:
+        subprocess.run(["taskkill", "/F", "/IM", "ffmpeg.exe"], capture_output=True, check=False)
+    except Exception:
+        pass
+    return {"ok": True, "message": "Stream pipeline paused! GPU resources freed and progress saved."}
+
+
 @app.post("/api/streams/{key}/stop")
 def stop_stream_processing(key: str):
     live_sess = ACTIVE_LIVE_SESSIONS.pop(key, None)
@@ -2737,13 +2925,33 @@ def resume_stream_processing(key: str, background_tasks: BackgroundTasks):
     d = stream_dir(key)
     if not d.exists():
         raise HTTPException(status_code=404, detail="Stream not found")
+    CANCEL_JOBS.discard(key)
+    prog_p = d / "progress.json"
+    cur = read_json(prog_p, {}) if prog_p.exists() else {}
+    paused_stage = cur.get("paused_stage") or cur.get("action", "render")
+
     info = read_json(d / "info.json", {})
     url = info.get("url")
-    if not url:
-        raise HTTPException(status_code=400, detail="Stream URL missing")
-    
-    background_tasks.add_task(_run_scan_thread, url)
-    return {"ok": True, "message": "Stream pipeline started/resumed in background!"}
+
+    if paused_stage in ("render", "curate") or (d / "final.json").exists() or (d / "clips").exists():
+        cur["action"] = "render"
+        cur["progress"] = "Resuming clip rendering on RTX 4050 GPU NVENC..."
+        cur["paused"] = False
+        cur["done"] = False
+        write_json(prog_p, cur)
+        ACTIVE_JOBS[key] = cur
+        background_tasks.add_task(_run_render_stream, key)
+        return {"ok": True, "message": "Resumed clip rendering from saved checkpoint (skipping completed clips)!"}
+    elif url:
+        cur["action"] = "scan"
+        cur["progress"] = "Resuming stream processing..."
+        cur["paused"] = False
+        cur["done"] = False
+        write_json(prog_p, cur)
+        ACTIVE_JOBS[key] = cur
+        background_tasks.add_task(_run_scan_thread, url)
+        return {"ok": True, "message": "Stream pipeline resumed from saved checkpoint!"}
+    raise HTTPException(status_code=400, detail="Cannot resume stream")
 
 
 @app.post("/api/scan")

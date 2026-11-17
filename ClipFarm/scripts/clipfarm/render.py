@@ -570,6 +570,22 @@ def render_stream(key: str, only: str | None = None, layout: str | None = None, 
             if not any(_match(cid, o) for o in only_list):
                 continue
         hook_name = c.get('hook') or c.get('title') or f"Clip {i}"
+        
+        # Check if already rendered so pause/resume does NOT start from the beginning!
+        already_rendered = False
+        for old_f in target_clips.glob("*.mp4"):
+            if (match_clip_id(old_f.stem.split("_")[0], cid) or old_f.stem.startswith(f"{cid}_")) and old_f.stat().st_size > 10000:
+                already_rendered = True
+                break
+        if already_rendered:
+            say(f"✓ clip {i}/{total_clips} already rendered: {hook_name} (skipping to save GPU)")
+            if on_progress:
+                try:
+                    on_progress(i, total_clips, hook_name, "rendered", None)
+                except Exception:
+                    pass
+            continue
+
         say(f"→ clip {i}/{total_clips}: {hook_name}  ({c['start']}–{c['end']})")
         if on_progress:
             try:
