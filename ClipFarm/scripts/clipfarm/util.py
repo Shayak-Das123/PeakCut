@@ -81,7 +81,7 @@ def ytdlp() -> list[str]:
     exe = which("yt-dlp")
     if not exe:
         raise SystemExit("yt-dlp is missing. Run: cf setup")
-    return [exe]
+    return [exe, "--extractor-args", "youtube:player_client=android,web"]
 
 
 def cookie_args(cookies: str | None = None) -> list[str]:
