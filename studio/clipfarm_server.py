@@ -3476,11 +3476,27 @@ def index_page():
     return HTMLResponse("<h1>ClipFarm UI not found</h1>")
 
 
+def get_lan_ip() -> str:
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
 def main():
     watched_creators.start_watcher_daemon()
     port = int(os.environ.get("CLIPFARM_PORT", 8767))
-    print(f"\n  ClipFarm Studio is running: http://127.0.0.1:{port}\n")
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    host = os.environ.get("CLIPFARM_HOST", "0.0.0.0")
+    lan_ip = get_lan_ip()
+    print(f"\n  ClipFarm Studio is running:")
+    print(f"  - Local PC:       http://127.0.0.1:{port}")
+    print(f"  - Phone (Wi-Fi):  http://{lan_ip}:{port}\n")
+    uvicorn.run(app, host=host, port=port, log_level="warning")
 
 
 if __name__ == "__main__":
