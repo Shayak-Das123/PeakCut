@@ -74,7 +74,7 @@ def download_section(url: str, start: float, end: float, out: Path, cookies: str
     out.parent.mkdir(parents=True, exist_ok=True)
     if out.exists() and out.stat().st_size > 10000:
         return out
-    fmt = f"bv*[height<={max_h}][fps<=60]+ba/b[height<={max_h}]/bv*+ba/b"
+    fmt = f"bv*[height<={max_h}][fps<=60]+ba/b[height<={max_h}]/bv*+ba/best/b"
     cmd = ytdlp() + ["--download-sections", f"*{max(0, start):.2f}-{end:.2f}", "-f", fmt,
                      "--merge-output-format", "mp4", "--no-playlist", "--no-warnings", "--quiet", "--no-progress",
                      "-o", str(out)] + cookie_args(cookies) + [url]
