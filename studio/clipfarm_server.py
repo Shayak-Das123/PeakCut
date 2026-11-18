@@ -242,6 +242,12 @@ app.add_middleware(
 @app.middleware("http")
 async def ensure_user_context(request: Request, call_next):
     ctx.set_uid("u_local")
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+    proto = request.headers.get("x-forwarded-proto")
+    if not proto:
+        proto = "https" if ("lhr.life" in host or "ngrok" in host or "trycloudflare" in host or "pinggy" in host) else request.url.scheme
+    if host and not host.startswith("127.0.0.1") and not host.startswith("localhost"):
+        config.PUBLIC_URL = f"{proto}://{host}".rstrip("/")
     return await call_next(request)
 
 ACTIVE_JOBS = {}
