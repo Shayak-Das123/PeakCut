@@ -1542,6 +1542,202 @@ video::backdrop {
   pointer-events: auto;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
+
+/* =========================================================================
+   MOBILE RESPONSIVE & DOWNLOAD BUTTON STYLES
+   ========================================================================= */
+.btn-mobile-download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #FF8B33 0%, #EA580C 100%);
+  color: #FFFFFF !important;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 9px;
+  text-decoration: none !important;
+  box-shadow: 0 3px 10px rgba(234, 88, 12, 0.25);
+  margin: 6px 0;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+.btn-mobile-download:hover {
+  opacity: 0.93;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35);
+}
+.btn-mobile-download:active {
+  transform: scale(0.98);
+}
+.mobile-top-bar {
+  display: none;
+}
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  body {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding-bottom: 74px !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .app {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    width: 100% !important;
+  }
+  aside {
+    display: none !important;
+  }
+  main {
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .mobile-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #14110F;
+    color: #F4EEEA;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    position: sticky;
+    top: 0;
+    z-index: 999;
+  }
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: #14110F;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    z-index: 9999;
+    justify-content: space-around;
+    align-items: center;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .mobile-bottom-nav button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: #9E8F85;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 6px 10px;
+    gap: 3px;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.15s ease;
+  }
+  .mobile-bottom-nav button.active {
+    color: #FF8B33;
+  }
+  .mobile-bottom-nav button svg {
+    width: 20px;
+    height: 20px;
+  }
+  .mobile-badge {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    background: #EA580C;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 99px;
+    min-width: 15px;
+    text-align: center;
+  }
+  .topbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+  .topbar .input-group {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+  .topbar .input-group input {
+    width: 100% !important;
+    min-height: 42px !important;
+    font-size: 14px !important;
+    border-radius: 8px !important;
+  }
+  .topbar .input-group button {
+    width: 100% !important;
+    min-height: 42px !important;
+    justify-content: center !important;
+    font-size: 13.5px !important;
+    border-radius: 8px !important;
+  }
+  .content {
+    padding: 12px 10px !important;
+    gap: 14px !important;
+    overflow: visible !important;
+  }
+  .grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .clips-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .clip-card {
+    border-radius: 14px !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06) !important;
+    margin-bottom: 8px !important;
+  }
+  .clip-video-box {
+    aspect-ratio: 9/16 !important;
+    max-height: 520px !important;
+    width: 100% !important;
+    border-radius: 13px 13px 0 0 !important;
+  }
+  .btn-mobile-download {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-height: 48px !important;
+    background: linear-gradient(135deg, #FF8B33 0%, #EA580C 100%) !important;
+    color: #FFFFFF !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    text-decoration: none !important;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3) !important;
+    margin: 6px 0 !important;
+    touch-action: manipulation;
+  }
+  .btn-mobile-download:active {
+    transform: scale(0.98);
+    opacity: 0.95;
+  }
+}
 </style>
 </head>
 <body>
@@ -1592,6 +1788,26 @@ video::backdrop {
   </aside>
 
   <main>
+    <!-- MOBILE TOP BAR -->
+    <div class="mobile-top-bar">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:28px;height:28px;border-radius:7px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:800;font-size:13px;">CF</div>
+        <div>
+          <div style="font-weight:700;font-size:13.5px;letter-spacing:-0.2px;">ClipFarm Mobile</div>
+          <div style="font-size:10px;color:#10B981;font-weight:600;display:flex;align-items:center;gap:4px;">
+            <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#10B981;"></span>
+            RTX 4050 GPU Active · Live
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-sm" style="background:#27272a;color:#fff;border:1px solid #3f3f46;padding:5px 9px;font-size:11px;" onclick="switchTab('clips')">
+          📥 Clips <span id="mobileClipsCountBadge" style="background:var(--brand);color:#fff;padding:1px 5px;border-radius:9px;font-size:9.5px;margin-left:2px;">50+</span>
+        </button>
+        <button class="btn btn-sm" style="background:#27272a;color:#fff;border:1px solid #3f3f46;padding:5px 8px;font-size:11px;" onclick="fetchStatus()">🔄</button>
+      </div>
+    </div>
+
     <header class="topbar">
       <div class="input-group">
         <input type="text" id="streamUrl" placeholder="Paste YouTube, Twitch, or Kick stream link...">
@@ -3111,6 +3327,10 @@ async function loadAllClips() {
   try {
     const res = await fetch('/api/clips');
     const clips = await res.json();
+    const mBadge = document.getElementById('mNavClipsBadge');
+    if (mBadge) mBadge.innerText = clips.length;
+    const topBadge = document.getElementById('mobileClipsCountBadge');
+    if (topBadge) topBadge.innerText = clips.length;
     if (!clips.length) {
       grid.innerHTML = '<div style="color:var(--dim);grid-column:1/-1;text-align:center;padding:40px;">No clips created yet. Render clips from your streams!</div>';
       return;
@@ -3118,46 +3338,51 @@ async function loadAllClips() {
     grid.innerHTML = clips.map(c => `
       <div class="clip-card">
         <div class="clip-video-box">
-          <video src="${c.video_url}?t=${c.mtime || Date.now()}" controls playsinline preload="auto"></video>
+          <video src="${c.video_url}?t=${c.mtime || Date.now()}" controls playsinline preload="metadata"></video>
         </div>
-        <div class="clip-info">
+        <div class="clip-info" style="padding:14px;display:flex;flex-direction:column;gap:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span class="hook-badge">${escapeHtml(c.hook || c.title)}</span>
-            <span class="badge ${c.saved ? 'badge-ready' : 'badge-process'}" style="font-size:10px;">${c.saved ? '⭐ Saved' : '⏳ Temp'}</span>
+            <span class="hook-badge" style="font-weight:700;font-size:13px;letter-spacing:-0.2px;">${escapeHtml(c.hook || c.title)}</span>
+            <span class="badge ${c.saved ? 'badge-ready' : 'badge-process'}" style="font-size:10.5px;">${c.saved ? '⭐ Saved' : '⏳ Temp'}</span>
           </div>
           <div style="font-size:12px;color:var(--dim);line-height:1.4;">${escapeHtml(c.caption || '')}</div>
-          <div style="font-size:11px;color:#888;">${c.streamer} · ${c.size_mb} MB · MP4</div>
-          <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
-            <div style="display:flex;gap:6px;">
-              <a href="/api/download/${c.filename}" download="${c.filename}" class="btn btn-sm" style="flex:1;text-align:center;">Download MP4</a>
-              <button class="btn btn-sm" style="${c.saved ? 'background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;' : 'background:#FFF8E1;color:#F57F17;border:1px solid #FFE082;'}" onclick="toggleSaveClip('${c.filename}')">
-                ${c.saved ? '⭐ Saved' : '💾 Save to Keep'}
-              </button>
-            </div>
-            <div style="display:flex;gap:6px;">
-              <button class="btn btn-sm btn-outline" style="flex:1;" onclick="copyCaption('${escapeJs(c.post_text || c.caption)}')">Copy Caption</button>
-              <button class="btn btn-sm btn-outline" style="color:var(--bad);border-color:var(--bad-soft);" onclick="deleteClip('${c.filename}')">🗑️ Delete</button>
-            </div>
-            <div style="display:flex;gap:6px;">
-              ${c.youtube_url ? `
-                <a href="${c.youtube_url}" target="_blank" class="btn btn-sm btn-social" style="flex:1;background:#15803d;text-decoration:none;text-align:center;font-weight:700;">▶ View Short</a>
-              ` : `
-                <button class="btn btn-sm btn-social" id="btnYt_${c.filename.replace(/[^a-zA-Z0-9]/g, '_')}" style="flex:1;" onclick="postToSocial('youtube', '${c.filename}', this)">Post to Shorts</button>
-              `}
-              ${c.instagram_url ? `
-                <a href="${c.instagram_url}" target="_blank" class="btn btn-sm btn-social" style="flex:1;background:#be185d;text-decoration:none;text-align:center;font-weight:700;">▶ View Reel</a>
-              ` : `
-                <button class="btn btn-sm btn-social" id="btnIg_${c.filename.replace(/[^a-zA-Z0-9]/g, '_')}" style="flex:1;background:#E1306C;" onclick="postToSocial('instagram', '${c.filename}', this)">Post to Reels</button>
-              `}
-            </div>
+          <div style="font-size:11px;color:#888;">${c.streamer} · ${c.size_mb} MB · 1080x1920 MP4</div>
 
-            <!-- ⚡ Quick Edit & Adjust Drawer (No Editor Needed) -->
-            <div class="quick-edit-panel" style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:8px 10px;margin-top:4px;display:flex;flex-direction:column;gap:6px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-size:11px;font-weight:800;color:#38bdf8;">⚡ Quick Edit & Adjust</span>
-                <span id="quickDur_${c.cid || c.filename.split('_')[0]}" style="font-size:10.5px;font-weight:800;color:#fbbf24;">${c.duration || '30.0'}s</span>
-              </div>
+          <!-- PROMINENT 1-TAP DOWNLOAD BUTTON -->
+          <a href="/api/download/${c.filename}" download="${c.filename}" class="btn-mobile-download">
+            📥 Download to Phone (${c.size_mb} MB)
+          </a>
 
+          <!-- QUICK SOCIAL POST BUTTONS -->
+          <div style="display:flex;gap:6px;">
+            ${c.youtube_url ? `
+              <a href="${c.youtube_url}" target="_blank" class="btn btn-sm btn-social" style="flex:1;background:#15803d;text-decoration:none;text-align:center;font-weight:700;padding:8px;">▶ View Short</a>
+            ` : `
+              <button class="btn btn-sm btn-social" id="btnYt_${c.filename.replace(/[^a-zA-Z0-9]/g, '_')}" style="flex:1;padding:8px;font-weight:700;background:#CC0000;" onclick="postToSocial('youtube', '${c.filename}', this)">▶ Post to Shorts</button>
+            `}
+            ${c.instagram_url ? `
+              <a href="${c.instagram_url}" target="_blank" class="btn btn-sm btn-social" style="flex:1;background:#be185d;text-decoration:none;text-align:center;font-weight:700;padding:8px;">▶ View Reel</a>
+            ` : `
+              <button class="btn btn-sm btn-social" id="btnIg_${c.filename.replace(/[^a-zA-Z0-9]/g, '_')}" style="flex:1;background:#E1306C;padding:8px;font-weight:700;" onclick="postToSocial('instagram', '${c.filename}', this)">📸 Post to Reels</button>
+            `}
+          </div>
+
+          <!-- UTILITIES ROW: COPY CAPTION & SAVE/DELETE -->
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-sm btn-outline" style="flex:1;padding:8px;font-weight:600;" onclick="copyCaption('${escapeJs(c.post_text || c.caption)}')">📋 Copy Caption</button>
+            <button class="btn btn-sm" style="${c.saved ? 'background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;' : 'background:#FFF8E1;color:#F57F17;border:1px solid #FFE082;'}padding:8px;font-weight:600;" onclick="toggleSaveClip('${c.filename}')">
+              ${c.saved ? '⭐ Saved' : '💾 Save'}
+            </button>
+            <button class="btn btn-sm btn-outline" style="color:var(--bad);border-color:var(--bad-soft);padding:8px;" onclick="deleteClip('${c.filename}')">🗑️</button>
+          </div>
+
+          <!-- ⚡ COLLAPSIBLE FINE TUNE & ADJUST DRAWER -->
+          <details class="quick-edit-details" style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:8px 10px;margin-top:2px;">
+            <summary style="font-size:11px;font-weight:700;color:#38bdf8;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;list-style:none;">
+              <span>⚙️ Adjust Hook & Offsets (Optional)</span>
+              <span id="quickDur_${c.cid || c.filename.split('_')[0]}" style="font-size:10.5px;font-weight:800;color:#fbbf24;">${c.duration || '30.0'}s ▾</span>
+            </summary>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
               <!-- Quick Hook & Caption -->
               <div style="display:flex;flex-direction:column;gap:4px;">
                 <div style="display:flex;gap:4px;">
@@ -3203,9 +3428,9 @@ async function loadAllClips() {
                 <button class="btn btn-sm" style="background:#8b5cf6;color:#fff;font-size:10px;padding:2px 8px;font-weight:700;" onclick="quickSaveCardPreset('${c.stream_key}', '${c.cid || c.filename.split('_')[0]}')">🎨 Style</button>
               </div>
             </div>
+          </details>
 
-            <button class="btn btn-sm" style="background:#000;color:#fff;width:100%;margin-top:4px;" onclick="openClipEditor('${c.stream_key}', '${c.cid || c.filename.split('_')[0]}')">✂️ Open in Live Video Editor</button>
-          </div>
+          <button class="btn btn-sm" style="background:#000;color:#fff;width:100%;margin-top:4px;" onclick="openClipEditor('${c.stream_key}', '${c.cid || c.filename.split('_')[0]}')">✂️ Open in Live Video Editor</button>
         </div>
       </div>
     `).join('');
@@ -6235,6 +6460,16 @@ function switchTab(tab) {
     const fn = btn.getAttribute('onclick') || '';
     btn.classList.toggle('active', fn.includes(`switchTab('${tab}')`));
   });
+  const mNavMap = {
+    'dashboard': 'mNavStreams',
+    'creators': 'mNavCreators',
+    'clips': 'mNavClips',
+    'storage': 'mNavStorage',
+    'social': 'mNavSocial'
+  };
+  document.querySelectorAll('.mobile-bottom-nav button').forEach(btn => btn.classList.remove('active'));
+  const activeMBtn = document.getElementById(mNavMap[tab]);
+  if (activeMBtn) activeMBtn.classList.add('active');
   if (tab === 'creators') {
     loadCreators();
   } else if (tab === 'clips') {
@@ -6400,5 +6635,31 @@ if (urlParams.get('connected')) {
   switchTab('social');
 }
 </script>
+
+<!-- MOBILE FIXED BOTTOM NAVIGATION BAR -->
+<nav class="mobile-bottom-nav">
+  <button class="active" id="mNavStreams" onclick="switchTab('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+    <span>Streams</span>
+  </button>
+  <button id="mNavCreators" onclick="switchTab('creators')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+    <span>Creators</span>
+  </button>
+  <button id="mNavClips" onclick="switchTab('clips')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
+    <span>Clips</span>
+    <span class="mobile-badge" id="mNavClipsBadge">50+</span>
+  </button>
+  <button id="mNavStorage" onclick="switchTab('storage')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+    <span>Storage</span>
+  </button>
+  <button id="mNavSocial" onclick="switchTab('social')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+    <span>Social</span>
+  </button>
+</nav>
+
 </body>
 </html>
