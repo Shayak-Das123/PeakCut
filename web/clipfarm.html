@@ -2937,7 +2937,7 @@ async function loadAllClips() {
     grid.innerHTML = clips.map(c => `
       <div class="clip-card">
         <div class="clip-video-box">
-          <video src="${c.video_url}" controls playsinline preload="auto"></video>
+          <video src="${c.video_url}?t=${c.mtime || Date.now()}" controls playsinline preload="auto"></video>
         </div>
         <div class="clip-info">
           <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -3050,9 +3050,14 @@ async function quickApplyLibBounds(streamKey, cid) {
     return alert('Please click -5s or +5s first to set a start or end offset.');
   }
   const btn = document.getElementById(`quickApplyBtn_${cid}`);
+  const statusEl = document.getElementById(`quickStatus_${cid}`);
   if (btn) {
     btn.disabled = true;
-    btn.innerText = 'Trimming...';
+    btn.innerText = '⏳ Rendering...';
+  }
+  if (statusEl) {
+    statusEl.style.color = '#f59e0b';
+    statusEl.innerText = '⏳ Re-rendering on RTX 4050 GPU (~15s)...';
   }
   try {
     const res = await fetch(`/api/streams/${streamKey}/clips/${cid}/adjust-bounds`, {
@@ -3066,10 +3071,18 @@ async function quickApplyLibBounds(streamKey, cid) {
     const d = await res.json();
     if (!res.ok || !d.ok) throw new Error(d.detail || 'Trimming failed');
     delete libNudgeState[cid];
-    alert(`✂️ Clip boundary successfully updated to ${d.duration}s (${d.start} → ${d.end})!`);
-    loadAllClips();
+    if (statusEl) {
+      statusEl.style.color = '#10b981';
+      statusEl.innerText = `✅ Rendered ${d.duration}s!`;
+    }
+    await loadAllClips();
+    alert(`✂️ Clip boundary updated and re-rendered successfully!\n\nNew length: ${d.duration}s (${d.start} → ${d.end})`);
   } catch (e) {
-    alert('Trim error: ' + (e.message || e));
+    alert('Trim & render error: ' + (e.message || e));
+    if (statusEl) {
+      statusEl.style.color = '#ef4444';
+      statusEl.innerText = 'Error re-rendering';
+    }
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -3667,11 +3680,11 @@ async function applyClipBoundaryTrim() {
   const btnInsp = document.getElementById('btnInspApplyClipTrim');
   if (btn) {
     btn.disabled = true;
-    btn.innerText = '✂️ Trimming...';
+    btn.innerText = '⏳ Rendering...';
   }
   if (btnInsp) {
     btnInsp.disabled = true;
-    btnInsp.innerText = '✂️ Trimming...';
+    btnInsp.innerText = '⏳ Re-rendering on GPU (~15s)...';
   }
   try {
     const res = await fetch(`/api/streams/${studioState.streamKey}/clips/${studioState.cid}/adjust-bounds`, {
@@ -3696,7 +3709,18 @@ async function applyClipBoundaryTrim() {
     }
     renderTimelineTracks();
     seekStudioVideo(0);
-    alert(`✂️ Clip boundary successfully updated to ${d.duration}s (${d.start} → ${d.end})!`);
+
+    const pv = document.getElementById('previewVideo');
+    if (pv) {
+      pv.src = `/api/streams/${studioState.streamKey}/clips/${studioState.cid}/video?t=${Date.now()}`;
+      pv.load();
+    }
+    const pm = document.getElementById('previewMasterVideo');
+    if (pm) {
+      pm.src = `/api/streams/${studioState.streamKey}/clips/${studioState.cid}/video?t=${Date.now()}`;
+      pm.load();
+    }
+    alert(`✂️ Clip boundary successfully updated and re-rendered to ${d.duration}s (${d.start} → ${d.end})!`);
   } catch (err) {
     alert(`Could not adjust clip bounds: ${err.message || err}`);
   } finally {

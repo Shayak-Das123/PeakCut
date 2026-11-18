@@ -1556,45 +1556,44 @@ def adjust_clip_bounds(key: str, cid: str, payload: dict):
             "-c", "copy", "-movflags", "+faststart",
             str(sec_file)
         ], check=False)
-    elif sec_file.exists() and (start_delta > 0 or end_delta < 0):
-        trim_start = max(0.0, start_delta)
-        trim_dur = new_dur + 3.0
-        temp_sec = sec_file.with_suffix(".tmp.mp4")
-        subprocess.run([
-            ffmpeg_exe, "-hide_banner", "-loglevel", "error", "-y",
-            "-ss", f"{trim_start:.2f}", "-t", f"{trim_dur:.2f}",
-            "-i", str(sec_file),
-            "-c", "copy", "-movflags", "+faststart",
-            str(temp_sec)
-        ], check=False)
-        if temp_sec.exists() and temp_sec.stat().st_size > 5000:
-            temp_sec.replace(sec_file)
+    else:
+        # VOD stream: remove previous section file so fetch.download_section re-downloads exact new boundary
+        if sec_file.exists():
+            try: sec_file.unlink()
+            except Exception: pass
+
+    # Clean previous rendered clip file so render_stream replaces it
+    target_clips = d / "clips"
+    target_clips.mkdir(parents=True, exist_ok=True)
+    for old_f in list(target_clips.glob("*")):
+        if match_clip_id(old_f.stem.split("_")[0], actual_cid) or old_f.stem.startswith(f"{actual_cid}_"):
+            try: old_f.unlink()
+            except Exception: pass
 
     render_d = d / "render" / actual_cid
     render_d.mkdir(parents=True, exist_ok=True)
-    wav_target = render_d / "clip16k.wav"
-    if sec_file.exists() and sec_file.stat().st_size > 5000:
-        subprocess.run([
-            ffmpeg_exe, "-hide_banner", "-loglevel", "error", "-y",
-            "-i", str(sec_file),
-            "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le",
-            str(wav_target)
-        ], check=False)
+    for old_rf in [render_d / "clean.mp4", render_d / "peekcut.mp4"]:
+        if old_rf.exists():
+            try: old_rf.unlink()
+            except Exception: pass
 
+    # Re-render with RTX GPU NVENC!
+    from clipfarm import render
+    made = render.render_stream(actual_key, only=actual_cid)
+    rendered_file = ""
     new_words = []
-    if wav_target.exists():
-        try:
-            from studio import transcribe as st_transcribe
-            audio_arr = media.load_audio(wav_target)
-            new_words = st_transcribe.transcribe(audio_arr)
-            write_json(render_d / "words.json", new_words)
-        except Exception as ex:
-            print("Error re-transcribing after bounds adjust:", ex)
-
-    for old_f in [render_d / "clean.mp4", render_d / "peekcut.mp4"]:
-        if old_f.exists():
-            try: old_f.unlink()
-            except: pass
+    if made:
+        rendered_file = made[0].get("file", "")
+        stem = Path(rendered_file).stem
+        dated_root = WORK_DIR / "clips"
+        if dated_root.exists():
+            for folder in dated_root.glob("*"):
+                if folder.is_dir():
+                    for item in folder.glob(f"{stem}*"):
+                        shutil.copy2(item, target_clips / item.name)
+        clip["file"] = rendered_file
+        new_words = made[0].get("words_list") or []
+        write_json(final_file, final_data)
 
     threading.Thread(target=ensure_clean_video, args=(actual_key, actual_cid, True), daemon=True).start()
 
@@ -1604,6 +1603,9 @@ def adjust_clip_bounds(key: str, cid: str, payload: dict):
         "start": clip["start"],
         "end": clip["end"],
         "duration": new_dur,
+        "rendered": bool(rendered_file),
+        "file": rendered_file,
+        "rendered_video_url": f"/api/streams/{actual_key}/clips/{actual_cid}/video?t={time.time()}",
         "words": new_words
     }
 
