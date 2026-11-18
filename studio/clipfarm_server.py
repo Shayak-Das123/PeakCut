@@ -925,8 +925,11 @@ def list_all_clips():
         facecam = f.with_suffix(".facecam.jpg")
         cid_val = meta.get("id")
         if not cid_val:
-            prefix = f.stem.split("_")[0]
-            cid_val = prefix if (prefix.isdigit() or prefix.startswith("c")) else f.stem
+            parts = f.stem.split("_")
+            if len(parts) >= 2 and parts[0] == "clip" and parts[1].isdigit():
+                cid_val = f"clip_{parts[1]}"
+            else:
+                cid_val = parts[0] if (parts[0].isdigit() or (parts[0].startswith("c") and any(ch.isdigit() for ch in parts[0]))) else f.stem
         
         stream_name = stream_key if stream_key != "vod" else (meta.get("stream") or "")
         effective_stream_key = stream_name or stream_key
