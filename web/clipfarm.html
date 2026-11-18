@@ -1988,6 +1988,7 @@ video::backdrop {
         <div class="streamer-filter-bar" style="display:flex;gap:10px;overflow-x:auto;padding:8px 0;margin:4px 0 12px 0;-webkit-overflow-scrolling:touch;">
           <button class="filter-pill active" id="filterAll" onclick="setClipFilter('all')" style="font-weight:700;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🔥 All Clips (<span id="countAll">--</span>)</button>
           <button class="filter-pill" id="filterSpeed" onclick="setClipFilter('IShowSpeed')" style="background:#FEE2E2;color:#991B1B;border-color:#F87171;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🔴 IShowSpeed (<span id="countSpeed">--</span>)</button>
+          <button class="filter-pill" id="filterKai" onclick="setClipFilter('KaiCenat')" style="background:#FEF08A;color:#854D0E;border-color:#EAB308;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🟡 Kai Cenat (<span id="countKai">--</span>)</button>
           <button class="filter-pill" id="filterXqc" onclick="setClipFilter('xQc')" style="background:#EDE9FE;color:#5B21B6;border-color:#A78BFA;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🟣 xQc (<span id="countXqc">--</span>)</button>
           <button class="filter-pill" id="filterCurated" onclick="setClipFilter('curated')" style="background:#FEF3C7;color:#92400E;border-color:#FBBF24;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">⭐ Top Curated Moments</button>
         </div>
@@ -3361,6 +3362,7 @@ function setClipFilter(filter) {
   const btnMap = {
     'all': 'filterAll',
     'IShowSpeed': 'filterSpeed',
+    'KaiCenat': 'filterKai',
     'xQc': 'filterXqc',
     'curated': 'filterCurated'
   };
@@ -3394,19 +3396,23 @@ function renderClipsGrid() {
   let filtered = allClipsData;
   if (currentClipFilter === 'IShowSpeed') {
     filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('ishowspeed')));
+  } else if (currentClipFilter === 'KaiCenat') {
+    filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('kai')) || (c.filename && c.filename.toLowerCase().includes('kai')));
   } else if (currentClipFilter === 'xQc') {
     filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc')));
   } else if (currentClipFilter === 'curated') {
     filtered = allClipsData.filter(c => c.curated || (c.score && c.score >= 90));
   } else {
-    // For 'all' view: interleave Speed and xQc so Speed clips appear immediately from the top on mobile!
+    // For 'all' view: interleave Speed, Kai Cenat and xQc so all streamers appear immediately from the top on mobile!
     const speedClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('ishowspeed')));
+    const kaiClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('kai')) || (c.filename && c.filename.toLowerCase().includes('kai')));
     const xqcClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc')));
-    const otherClips = allClipsData.filter(c => !speedClips.includes(c) && !xqcClips.includes(c));
+    const otherClips = allClipsData.filter(c => !speedClips.includes(c) && !kaiClips.includes(c) && !xqcClips.includes(c));
     const combined = [];
-    const maxLen = Math.max(speedClips.length, xqcClips.length);
+    const maxLen = Math.max(speedClips.length, kaiClips.length, xqcClips.length);
     for (let i = 0; i < maxLen; i++) {
       if (i < speedClips.length) combined.push(speedClips[i]);
+      if (i < kaiClips.length) combined.push(kaiClips[i]);
       if (i < xqcClips.length) combined.push(xqcClips[i]);
     }
     combined.push(...otherClips);
@@ -3420,9 +3426,17 @@ function renderClipsGrid() {
 
   grid.innerHTML = filtered.map(c => {
     const boxId = c.filename.replace(/[^a-zA-Z0-9]/g, '_');
-    const isSpeed = (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('speed'));
-    const streamerTag = isSpeed ? '🔴 IShowSpeed' : '🟣 xQc';
-    const tagBorderColor = isSpeed ? '#EF4444' : '#8B5CF6';
+    const sName = (c.streamer || '').toLowerCase();
+    const fName = (c.filename || '').toLowerCase();
+    let streamerTag = '🟣 xQc';
+    let tagBorderColor = '#8B5CF6';
+    if (sName.includes('speed') || fName.includes('speed')) {
+      streamerTag = '🔴 IShowSpeed';
+      tagBorderColor = '#EF4444';
+    } else if (sName.includes('kai') || fName.includes('kai')) {
+      streamerTag = '🟡 Kai Cenat';
+      tagBorderColor = '#EAB308';
+    }
     return `
       <div class="clip-card" style="box-shadow:0 3px 12px rgba(0,0,0,0.06);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;">
         <!-- High-Performance Tap-To-Play Container (Zero Black Screen on Mobile Safari) -->
@@ -3459,10 +3473,15 @@ function renderClipsGrid() {
           <div style="font-size:12px;color:var(--dim);line-height:1.45;">${escapeHtml(c.caption || '')}</div>
           <div style="font-size:11px;color:#888;">${c.streamer} · ${c.size_mb} MB · 1080x1920 MP4</div>
 
-          <!-- PROMINENT 1-TAP DOWNLOAD BUTTON -->
-          <a href="/api/download/${c.filename}" download="${c.filename}" class="btn-mobile-download" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;background:linear-gradient(135deg, #FF8B33 0%, #EA580C 100%);color:#fff;font-size:15px;font-weight:800;border-radius:10px;text-decoration:none;box-shadow:0 3px 10px rgba(255,139,51,0.3);margin-top:2px;">
-            📥 Download MP4 to Phone (${c.size_mb} MB)
-          </a>
+          <!-- PROMINENT ACTIONS: 1-TAP DOWNLOAD & FULLSCREEN NATIVE PLAYER -->
+          <div style="display:flex;gap:8px;margin-top:2px;">
+            <a href="/api/download/${c.filename}" download="${c.filename}" class="btn-mobile-download" style="flex:1.2;display:flex;align-items:center;justify-content:center;gap:6px;min-height:46px;background:linear-gradient(135deg, #FF8B33 0%, #EA580C 100%);color:#fff;font-size:13.5px;font-weight:800;border-radius:10px;text-decoration:none;box-shadow:0 3px 10px rgba(255,139,51,0.3);">
+              📥 Download (${c.size_mb} MB)
+            </a>
+            <a href="${c.video_url}" target="_blank" class="btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:46px;background:#18181b;color:#38bdf8;border:1px solid #38bdf8;font-size:12.5px;font-weight:800;border-radius:10px;text-decoration:none;">
+              📺 Native Player
+            </a>
+          </div>
 
           <!-- QUICK SOCIAL POST BUTTONS -->
           <div style="display:flex;gap:6px;">
@@ -3562,9 +3581,12 @@ async function loadAllClips() {
     
     // Update filter counts
     const speedCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('ishowspeed'))).length;
+    const kaiCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('kai')) || (c.filename && c.filename.toLowerCase().includes('kai'))).length;
     const xqcCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc'))).length;
     const elSpeed = document.getElementById('countSpeed');
     if (elSpeed) elSpeed.innerText = speedCount;
+    const elKai = document.getElementById('countKai');
+    if (elKai) elKai.innerText = kaiCount;
     const elXqc = document.getElementById('countXqc');
     if (elXqc) elXqc.innerText = xqcCount;
     const elAll = document.getElementById('countAll');

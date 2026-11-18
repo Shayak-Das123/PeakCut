@@ -20,7 +20,7 @@ import numpy as np
 import uvicorn
 from fastapi import BackgroundTasks, Body, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 
 # Setup paths and environment
 ROOT = Path(__file__).resolve().parent.parent
@@ -302,20 +302,40 @@ def api_status():
 
 
 # --- HTTP Range Streaming for Video Playback ---
-def range_stream(file_path: Path, range_header: Optional[str], media_type: str = "video/mp4"):
+def range_stream(file_path: Path, range_header: Optional[str], media_type: str = "video/mp4", is_head: bool = False):
     file_size = file_path.stat().st_size
+    common_headers = {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "public, max-age=3600, no-transform",
+        "X-Accel-Buffering": "no",
+        "Content-Disposition": "inline"
+    }
+    if is_head:
+        common_headers["Content-Length"] = str(file_size)
+        common_headers["Content-Type"] = media_type
+        return Response(status_code=200, headers=common_headers, media_type=media_type)
+
     if not range_header:
-        return FileResponse(str(file_path), media_type=media_type, headers={"Accept-Ranges": "bytes"})
+        common_headers["Content-Length"] = str(file_size)
+        return FileResponse(str(file_path), media_type=media_type, headers=common_headers)
     
     range_match = re.match(r"bytes=(\d+)-(\d*)", range_header)
     if not range_match:
-        return FileResponse(str(file_path), media_type=media_type)
+        common_headers["Content-Length"] = str(file_size)
+        return FileResponse(str(file_path), media_type=media_type, headers=common_headers)
 
     start = int(range_match.group(1))
     end_val = range_match.group(2)
     end = int(end_val) if end_val else file_size - 1
     end = min(end, file_size - 1)
     content_length = end - start + 1
+
+    headers = dict(common_headers)
+    headers.update({
+        "Content-Range": f"bytes {start}-{end}/{file_size}",
+        "Content-Length": str(content_length),
+        "Content-Type": media_type
+    })
 
     def iter_range():
         with open(file_path, "rb") as f:
@@ -333,12 +353,7 @@ def range_stream(file_path: Path, range_header: Optional[str], media_type: str =
         iter_range(),
         status_code=206,
         media_type=media_type,
-        headers={
-            "Content-Range": f"bytes {start}-{end}/{file_size}",
-            "Accept-Ranges": "bytes",
-            "Content-Length": str(content_length),
-            "Content-Type": media_type,
-        }
+        headers=headers
     )
 
 
@@ -390,46 +405,39 @@ def find_file_in_work(filename: str) -> Optional[Path]:
 
 
 @app.get("/media/video/{filename}")
-def stream_video(filename: str):
+@app.head("/media/video/{filename}")
+def stream_video(filename: str, request: Request):
     p = find_file_in_work(filename)
     if not p or not p.exists():
         raise HTTPException(status_code=404, detail="Video file not found")
     media_type = "video/mp4"
     if p.suffix in (".wav", ".mp3", ".aac", ".ogg"):
         media_type = f"audio/{p.suffix.lstrip('.')}"
-    return FileResponse(
-        str(p),
-        media_type=media_type,
-        headers={
-            "Accept-Ranges": "bytes",
-            "Cache-Control": "public, max-age=3600"
-        }
-    )
+    is_head = request.method.upper() == "HEAD"
+    return range_stream(p, request.headers.get("range"), media_type=media_type, is_head=is_head)
 
 
 @app.get("/media/audio/{filename}")
-def stream_audio(filename: str):
+@app.head("/media/audio/{filename}")
+def stream_audio(filename: str, request: Request):
     p = find_file_in_work(filename)
     if not p or not p.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
     media_type = "audio/wav" if filename.endswith(".wav") else "audio/mpeg" if filename.endswith(".mp3") else "audio/mp4"
-    return FileResponse(
-        str(p),
-        media_type=media_type,
-        headers={
-            "Accept-Ranges": "bytes",
-            "Cache-Control": "public, max-age=3600"
-        }
-    )
+    is_head = request.method.upper() == "HEAD"
+    return range_stream(p, request.headers.get("range"), media_type=media_type, is_head=is_head)
 
 
 @app.get("/media/thumb/{filename}")
-def serve_thumbnail(filename: str):
+@app.head("/media/thumb/{filename}")
+def serve_thumbnail(filename: str, request: Request):
     p = find_file_in_work(filename)
     if not p or not p.exists():
         raise HTTPException(status_code=404, detail="Thumbnail not found")
     media_type = "image/jpeg" if filename.endswith((".jpg", ".jpeg")) else "image/png"
-    return FileResponse(str(p), media_type=media_type)
+    if request.method.upper() == "HEAD":
+        return Response(status_code=200, headers={"Content-Type": media_type, "Content-Length": str(p.stat().st_size), "Accept-Ranges": "bytes"})
+    return FileResponse(str(p), media_type=media_type, headers={"Cache-Control": "public, max-age=86400, no-transform"})
 
 
 @app.get("/media/clips/{key}/{filename}")
@@ -976,11 +984,22 @@ def list_all_clips():
                 clean_p = _cp
         clean_video_url = f"/media/clean/{stream_name}/{cid_val}.mp4" if clean_p else f"/media/video/{f.name}"
 
+        streamer_val = meta.get("streamer")
+        if not streamer_val or streamer_val == "Creator":
+            if "kai" in f.name.lower() or "kai" in effective_stream_key.lower() or "VZqAPdUvqnQ" in effective_stream_key:
+                streamer_val = "Kai Cenat"
+            elif "speed" in f.name.lower() or "speed" in effective_stream_key.lower() or "qSyo5d-dVzA" in effective_stream_key:
+                streamer_val = "IShowSpeed"
+            elif "xqc" in f.name.lower() or "xqc" in effective_stream_key.lower():
+                streamer_val = "xQc"
+            else:
+                streamer_val = "Creator"
+
         clips.append({
             "filename": f.name,
             "stream_key": effective_stream_key,
             "cid": cid_val,
-            "streamer": meta.get("streamer") or "Creator",
+            "streamer": streamer_val,
             "title": meta.get("title") or meta.get("hook") or f.stem,
             "hook": meta.get("hook") or meta.get("title") or "",
             "caption": meta.get("caption") or "",
