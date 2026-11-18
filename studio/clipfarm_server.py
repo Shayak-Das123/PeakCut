@@ -989,7 +989,9 @@ def list_all_clips():
 
         streamer_val = meta.get("streamer")
         if not streamer_val or streamer_val == "Creator":
-            if "kai" in f.name.lower() or "kai" in effective_stream_key.lower() or "VZqAPdUvqnQ" in effective_stream_key:
+            if "carry" in f.name.lower() or "carry" in effective_stream_key.lower():
+                streamer_val = "CarryMinati"
+            elif "kai" in f.name.lower() or "kai" in effective_stream_key.lower() or "VZqAPdUvqnQ" in effective_stream_key:
                 streamer_val = "Kai Cenat"
             elif "speed" in f.name.lower() or "speed" in effective_stream_key.lower() or "qSyo5d-dVzA" in effective_stream_key:
                 streamer_val = "IShowSpeed"

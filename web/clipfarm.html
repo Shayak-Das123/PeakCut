@@ -1989,6 +1989,7 @@ video::backdrop {
           <button class="filter-pill active" id="filterAll" onclick="setClipFilter('all')" style="font-weight:700;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🔥 All Clips (<span id="countAll">--</span>)</button>
           <button class="filter-pill" id="filterSpeed" onclick="setClipFilter('IShowSpeed')" style="background:#FEE2E2;color:#991B1B;border-color:#F87171;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🔴 IShowSpeed (<span id="countSpeed">--</span>)</button>
           <button class="filter-pill" id="filterKai" onclick="setClipFilter('KaiCenat')" style="background:#FEF08A;color:#854D0E;border-color:#EAB308;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🟡 Kai Cenat (<span id="countKai">--</span>)</button>
+          <button class="filter-pill" id="filterCarry" onclick="setClipFilter('CarryMinati')" style="background:#DCFCE7;color:#166534;border-color:#22C55E;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🟢 CarryMinati (<span id="countCarry">--</span>)</button>
           <button class="filter-pill" id="filterXqc" onclick="setClipFilter('xQc')" style="background:#EDE9FE;color:#5B21B6;border-color:#A78BFA;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🟣 xQc (<span id="countXqc">--</span>)</button>
           <button class="filter-pill" id="filterCurated" onclick="setClipFilter('curated')" style="background:#FEF3C7;color:#92400E;border-color:#FBBF24;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">⭐ Top Curated Moments</button>
         </div>
@@ -3363,6 +3364,7 @@ function setClipFilter(filter) {
     'all': 'filterAll',
     'IShowSpeed': 'filterSpeed',
     'KaiCenat': 'filterKai',
+    'CarryMinati': 'filterCarry',
     'xQc': 'filterXqc',
     'curated': 'filterCurated'
   };
@@ -3398,21 +3400,25 @@ function renderClipsGrid() {
     filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('ishowspeed')));
   } else if (currentClipFilter === 'KaiCenat') {
     filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('kai')) || (c.filename && c.filename.toLowerCase().includes('kai')));
+  } else if (currentClipFilter === 'CarryMinati') {
+    filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('carry')) || (c.filename && c.filename.toLowerCase().includes('carry')));
   } else if (currentClipFilter === 'xQc') {
     filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc')));
   } else if (currentClipFilter === 'curated') {
     filtered = allClipsData.filter(c => c.curated || (c.score && c.score >= 90));
   } else {
-    // For 'all' view: interleave Speed, Kai Cenat and xQc so all streamers appear immediately from the top on mobile!
+    // For 'all' view: interleave Speed, Kai Cenat, CarryMinati and xQc so all streamers appear immediately from the top on mobile!
     const speedClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('ishowspeed')));
     const kaiClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('kai')) || (c.filename && c.filename.toLowerCase().includes('kai')));
+    const carryClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('carry')) || (c.filename && c.filename.toLowerCase().includes('carry')));
     const xqcClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc')));
-    const otherClips = allClipsData.filter(c => !speedClips.includes(c) && !kaiClips.includes(c) && !xqcClips.includes(c));
+    const otherClips = allClipsData.filter(c => !speedClips.includes(c) && !kaiClips.includes(c) && !carryClips.includes(c) && !xqcClips.includes(c));
     const combined = [];
-    const maxLen = Math.max(speedClips.length, kaiClips.length, xqcClips.length);
+    const maxLen = Math.max(speedClips.length, kaiClips.length, carryClips.length, xqcClips.length);
     for (let i = 0; i < maxLen; i++) {
       if (i < speedClips.length) combined.push(speedClips[i]);
       if (i < kaiClips.length) combined.push(kaiClips[i]);
+      if (i < carryClips.length) combined.push(carryClips[i]);
       if (i < xqcClips.length) combined.push(xqcClips[i]);
     }
     combined.push(...otherClips);
@@ -3436,6 +3442,9 @@ function renderClipsGrid() {
     } else if (sName.includes('kai') || fName.includes('kai')) {
       streamerTag = '🟡 Kai Cenat';
       tagBorderColor = '#EAB308';
+    } else if (sName.includes('carry') || fName.includes('carry')) {
+      streamerTag = '🟢 CarryMinati';
+      tagBorderColor = '#22C55E';
     }
     return `
       <div class="clip-card" style="box-shadow:0 3px 12px rgba(0,0,0,0.06);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;">
@@ -3582,11 +3591,14 @@ async function loadAllClips() {
     // Update filter counts
     const speedCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('ishowspeed'))).length;
     const kaiCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('kai')) || (c.filename && c.filename.toLowerCase().includes('kai'))).length;
+    const carryCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('carry')) || (c.filename && c.filename.toLowerCase().includes('carry'))).length;
     const xqcCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc'))).length;
     const elSpeed = document.getElementById('countSpeed');
     if (elSpeed) elSpeed.innerText = speedCount;
     const elKai = document.getElementById('countKai');
     if (elKai) elKai.innerText = kaiCount;
+    const elCarry = document.getElementById('countCarry');
+    if (elCarry) elCarry.innerText = carryCount;
     const elXqc = document.getElementById('countXqc');
     if (elXqc) elXqc.innerText = xqcCount;
     const elAll = document.getElementById('countAll');

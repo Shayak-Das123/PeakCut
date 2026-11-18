@@ -333,9 +333,15 @@ class LivePipelineSession:
                 # Wait until either a jump occurs or 2 minutes elapse without a clip
                 continue
 
-            # Formulate clip boundaries: 30-45s clip centered around peak
-            clip_start = max(last_end, peak_t - 22.0)
-            clip_end = min(t_trans, clip_start + 35.0)
+            # Cap at strictly 10 reels per stream as instructed
+            with self.lock:
+                if len(self.clips_ready) + len(self.render_queue) >= 10:
+                    time.sleep(15)
+                    continue
+
+            # Formulate clip boundaries: 22-38s clip centered around peak with natural narrative arc
+            clip_start = max(last_end, peak_t - 18.0)
+            clip_end = min(t_trans, clip_start + 32.0)
 
             if clip_end - clip_start < 18.0:
                 continue
@@ -344,14 +350,17 @@ class LivePipelineSession:
             with self.lock:
                 clip_words = [w for w in self.words if clip_start <= w["s"] <= clip_end]
 
-            if len(clip_words) < 5:
-                # No speech, skip forward
+            if len(clip_words) < 8:
+                # Insufficient speech/action, skip forward
                 self.last_clip_end = clip_end
                 continue
 
-            # Create punchy hook title from speech
-            first_text = " ".join(w["w"] for w in clip_words[:12]).strip()
-            hook = self._generate_hook(first_text, jump_db)
+            # Full dialogue text for contextual hook and story caption generation
+            dialogue_text = " ".join(w["w"] for w in clip_words).strip()
+            pkg = self._generate_hook(dialogue_text, jump_db)
+            hook = pkg["hook"]
+            caption = pkg["caption"]
+            hashtags = pkg["hashtags"]
 
             cid = f"clip_{len(self.clips_found) + 1:02d}"
             clip_meta = {
@@ -359,7 +368,13 @@ class LivePipelineSession:
                 "start": round(clip_start, 2),
                 "end": round(clip_end, 2),
                 "duration": round(clip_end - clip_start, 2),
-                "hook": hook.upper(),
+                "title": hook,
+                "hook": hook,
+                "caption": caption,
+                "hashtags": hashtags,
+                "curated": True,
+                "saved": True,
+                "score": min(99, 90 + int(min(9, jump_db))),
                 "reason": f"Excitement spike (+{round(jump_db)} dB loud) during live broadcast",
                 "status": "queued",
                 "progress": 0,
@@ -376,27 +391,16 @@ class LivePipelineSession:
             # Update final.json so frontend can see clips immediately
             self._save_final_json()
 
-    def _generate_hook(self, speech_sample: str, jump_db: float) -> str:
+    def _generate_hook(self, speech_sample: str, jump_db: float) -> dict:
+        """Generates high-converting, viral packaging. Never returns raw spoken phrases."""
+        from studio import clipfarm_server
         streamer_name = self.streamer or "Streamer"
-        lower = speech_sample.lower()
-        if "die" in lower or "dead" in lower or "kill" in lower:
-            return f"{streamer_name} Almost Died in GTA 6!"
-        if "cop" in lower or "police" in lower or "chase" in lower or "five star" in lower:
-            return f"{streamer_name} Wild 5-Star Police Chase"
-        if "car" in lower or "drive" in lower or "crash" in lower or "speed" in lower:
-            return f"{streamer_name} Insane GTA 6 High-Speed Moment!"
-        if "gun" in lower or "weapon" in lower or "shoot" in lower:
-            return f"{streamer_name} Finds Secret Weapon in GTA 6"
-        if "money" in lower or "broke" in lower or "cash" in lower or "dollar" in lower:
-            return f"{streamer_name} Loses All His Money in Vice City"
-        if jump_db >= 14.0:
-            return f"{streamer_name}'s Most Explosive GTA 6 Scream!"
-        clean = re.sub(r"[^a-zA-Z0-9 ']", "", speech_sample).strip()
-        words = clean.split()
-        if len(words) >= 4:
-            phrase = " ".join(words[:6]).title()
-            return f"\"{phrase}...\" - {streamer_name}"
-        return f"{streamer_name} Unreal GTA 6 Moment"
+        return clipfarm_server.generate_ai_clip_hook_and_caption(
+            streamer=streamer_name,
+            stream_title=self.title or "GTA 6 Live Stream",
+            dialogue=speech_sample,
+            why_signals=f"Excitement jump +{round(jump_db)} dB loud"
+        )
 
     def _render_worker(self):
         """Asynchronously renders vertical 9:16 clips on RTX 4050 GPU using NVENC."""
@@ -428,6 +432,7 @@ class LivePipelineSession:
                 clip["error"] = "Segments not found in buffer"
                 continue
 
+            first_seg_start = next(a for p, a, b in self.segments if p == segs[0])
             clip["progress"] = 25
             sec_file = self.sections_dir / f"{cid}.mp4"
             lst_file = self.sections_dir / f"{cid}.txt"
@@ -467,21 +472,20 @@ class LivePipelineSession:
                 write_json(words_file, clip_words)
 
                 # 3. Call ClipFarm's authentic render_one pipeline:
-                # - FaceCam detection with YuNet ONNX on RTX 4050 GPU
-                # - Stack layout: FaceCam on top (1080x760), gameplay below (1080x1160)
-                # - Big Hook Card (white rounded card, bold black heavy type)
-                # - Word-by-word captions (active word neon yellow, stroke, shadow)
-                # - Streamer credit tag
                 from ClipFarm.scripts.clipfarm import render as cf_render
                 clip_spec = {
                     "id": cid,
                     "start": s,
                     "end": e,
+                    "title": clip.get("title") or clip["hook"],
                     "hook": clip["hook"],
-                    "caption": f"{self.streamer} - {clip['hook']}",
+                    "caption": clip.get("caption") or f"{self.streamer} - {clip['hook']}",
                     "streamer": self.streamer,
-                    "hashtags": ["#shorts", "#streamer", "#viral", "#gaming", f"#{_clean_slug(self.streamer)}"],
-                    "custom_words": clip_words
+                    "hashtags": clip.get("hashtags") or ["#shorts", "#streamer", "#viral", "#gaming", f"#{_clean_slug(self.streamer)}"],
+                    "custom_words": clip_words,
+                    "curated": True,
+                    "saved": True,
+                    "score": clip.get("score", 95)
                 }
                 out_dir = self.clips_dir
                 out_dir.mkdir(parents=True, exist_ok=True)
@@ -491,7 +495,7 @@ class LivePipelineSession:
                     clip_spec,
                     len(self.clips_ready) + 1,
                     out_dir,
-                    section=(sec_file, s)
+                    section=(sec_file, first_seg_start)
                 )
                 out_name = meta["file"]
                 out_path = out_dir / out_name
