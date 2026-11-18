@@ -114,12 +114,19 @@ def render_curated_reel(
             "channel": streamer
         }
 
+    clip_dur = round(e - s, 2)
+    hook_half_dur = round(clip_dur * 0.50, 1)
+
     clip_spec = {
         "id": cid,
         "start": s,
         "end": e,
         "title": hook,
         "hook": hook,
+        "hook_duration": hook_half_dur,
+        "hook_y": 800,
+        "cap_y": 1420,
+        "trim_air": False,
         "caption": caption,
         "streamer": streamer,
         "hashtags": hashtags,
@@ -143,6 +150,9 @@ def render_curated_reel(
     out_name = meta["file"]
     meta["title"] = hook
     meta["hook"] = hook
+    meta["hook_duration"] = hook_half_dur
+    meta["hook_y"] = 800
+    meta["cap_y"] = 1420
     meta["caption"] = caption
     meta["hashtags"] = hashtags
     meta["curated"] = True

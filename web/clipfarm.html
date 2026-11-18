@@ -4346,8 +4346,8 @@ async function openClipEditor(streamKey, cid) {
     studioState.hook_duration = typeof d.hook_duration === 'number' ? d.hook_duration : 3.5;
     studioState.hook_start = typeof d.hook_start === 'number' ? d.hook_start : 0.0;
     studioState.layout = d.layout || 'blur';
-    studioState.hook_y = (d.hook_y !== undefined && d.hook_y !== null) ? d.hook_y : (studioState.layout === 'blur' ? 460 : 830);
-    studioState.cap_y = (d.cap_y !== undefined && d.cap_y !== null) ? d.cap_y : (studioState.layout === 'blur' ? 1440 : 630);
+    studioState.hook_y = (d.hook_y !== undefined && d.hook_y !== null) ? d.hook_y : (studioState.layout === 'blur' ? 460 : 800);
+    studioState.cap_y = (d.cap_y !== undefined && d.cap_y !== null) ? d.cap_y : (studioState.layout === 'blur' ? 1440 : 1420);
     studioState.preset = d.preset || 'pop_glow';
     studioState.gameplay_zoom = typeof d.gameplay_zoom === 'number' ? d.gameplay_zoom : 1.0;
     studioState.gameplay_pan_x = typeof d.gameplay_pan_x === 'number' ? d.gameplay_pan_x : 0.0;
@@ -4853,8 +4853,8 @@ function setStudioLayout(layoutName, updateDefaults = true) {
       studioState.hook_y = 460;
       studioState.cap_y = 1440;
     } else {
-      studioState.hook_y = 830;
-      studioState.cap_y = 630;
+      studioState.hook_y = 800;
+      studioState.cap_y = 1420;
     }
     const hy = document.getElementById('inspHookY');
     if (hy) hy.value = studioState.hook_y;

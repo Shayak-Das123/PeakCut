@@ -230,8 +230,29 @@ def render_one(info: dict, d: Path, clip: dict, idx: int, out_dir: Path, layout:
     # 3. clean edges, no dead air, under the length cap
     keep, speech_db = plan_cut(words, db, a, b, float(cfg["max_clip_s"]), trim_air=clip.get("trim_air", True))
     L = sum(y - x for x, y in keep)
-    source_words = clip.get("custom_words") or words
-    out_words = remap(source_words, keep)
+    source_words = clip.get("custom_words")
+    if source_words:
+        # Check if custom_words are already relative to the clip (0 to L)
+        c_words = source_words
+        is_clip_rel = (
+            len(c_words) > 0 and
+            min(w.get("s", 0) for w in c_words) < max(2.5, a) and
+            max(w.get("e", 0) for w in c_words) <= (L + 6.0)
+        )
+        if is_clip_rel:
+            # Word timestamps are ALREADY relative to the clip (0 to L).
+            # Do NOT pass through remap which would double-subtract `a` and cause a 10s desync!
+            out_words = [dict(w) for w in c_words if w.get("s", 0) < L]
+            out_words.sort(key=lambda w: w.get("s", 0))
+        else:
+            # Words are in stream timeline or sec timeline
+            if min(w.get("s", 0) for w in c_words) >= (s - 5.0):
+                sec_words = [{**w, "s": w["s"] - T0, "e": w["e"] - T0} for w in c_words]
+                out_words = remap(sec_words, keep)
+            else:
+                out_words = remap(c_words, keep)
+    else:
+        out_words = remap(words, keep)
     try:
         (work / "words.json").write_text(json.dumps(out_words, indent=2, ensure_ascii=False), encoding="utf-8")
     except Exception:
@@ -280,15 +301,15 @@ def render_one(info: dict, d: Path, clip: dict, idx: int, out_dir: Path, layout:
     else:
         crw = crh = 0
     CAP_Y = {
-        "stack": face.CAM_H - captions.CAP_H // 2,
-        "fullcam": 1180,
-        "gameplay": 656 + 608 + 80,
+        "stack": 1420 if hook else (face.CAM_H - captions.CAP_H // 2),
+        "fullcam": 1420,
+        "gameplay": 1420,
         "blur": 1460,
         "peekcut": 1460
     }
     HOOK_Y = {
-        "stack": face.CAM_H + 70,
-        "fullcam": 250,
+        "stack": face.CAM_H + 40,
+        "fullcam": 220,
         "gameplay": max(160, 656 - hh - 30),
         "blur": 360,
         "peekcut": 360
@@ -297,6 +318,9 @@ def render_one(info: dict, d: Path, clip: dict, idx: int, out_dir: Path, layout:
     hook_y = int(clip.get("hook_y")) if clip.get("hook_y") is not None else HOOK_Y.get(lays[0], 360)
     custom_cap_y = clip.get("cap_y")
     if custom_cap_y is not None:
+        # Guarantee zero overlap between hook card and captions
+        if hook and abs(int(custom_cap_y) - hook_y) < (hh + 80):
+            custom_cap_y = 1420
         cap_expr = str(int(custom_cap_y))
     else:
         # caption height follows the layout of whatever is on screen
@@ -388,7 +412,11 @@ def render_one(info: dict, d: Path, clip: dict, idx: int, out_dir: Path, layout:
     inputs = ["-i", str(sec), "-f", "concat", "-safe", "0", "-i", str(caplist)]
     n_in = 2
     if hook:
-        hook_dur = float(clip.get("hook_duration", 3.5))
+        # Default hook duration to 50% of clip duration (user mandate: 50% screen time)
+        default_dur = round(L * 0.50, 1)
+        hook_dur = float(clip.get("hook_duration") or default_dur)
+        if hook_dur <= 5.0 and L >= 10.0:
+            hook_dur = default_dur
         hook_start = max(0.0, float(clip.get("hook_start", 0.0)))
         hook_dur = max(0.5, min(L, hook_dur))
         hook_end = min(L, hook_start + hook_dur)
@@ -446,7 +474,7 @@ def render_one(info: dict, d: Path, clip: dict, idx: int, out_dir: Path, layout:
     out.with_suffix(".txt").write_text(kit)
     meta = {"id": cid, "file": out.name, "stream": d.name, "streamer": who, "platform": info.get("platform"),
             "title": info.get("title"), "start": round(T0 + keep[0][0], 2), "end": round(T0 + keep[-1][1], 2),
-            "length": round(L, 2), "hook": hook, "hook_duration": float(clip.get("hook_duration", 3.5)),
+            "length": round(L, 2), "hook": hook, "hook_duration": float(hook_dur),
             "hook_start": float(clip.get("hook_start", 0.0)),
             "hook_y": hook_y, "cap_y": int(custom_cap_y) if custom_cap_y is not None else CAP_Y.get(lays[0], 1460),
             "gameplay_zoom": float(clip.get("gameplay_zoom", 1.0)),
