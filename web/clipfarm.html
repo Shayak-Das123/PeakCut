@@ -1568,6 +1568,28 @@ video::backdrop {
   opacity: 0.93;
   box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35);
 }
+.filter-pill {
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  background: var(--muted);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+.filter-pill.active {
+  background: var(--brand) !important;
+  color: #fff !important;
+  border-color: var(--brand) !important;
+  box-shadow: 0 2px 8px rgba(255, 139, 51, 0.35);
+}
 .btn-mobile-download:active {
   transform: scale(0.98);
 }
@@ -1961,6 +1983,15 @@ video::backdrop {
             <button class="btn btn-sm btn-outline" style="color:var(--bad);border-color:var(--bad-soft);" onclick="purgeUnsavedClips()">🗑️ Purge Unsaved Clips</button>
           </div>
         </div>
+
+        <!-- STREAMER & QUALITY FILTER BAR -->
+        <div class="streamer-filter-bar" style="display:flex;gap:8px;overflow-x:auto;padding:8px 0;margin:4px 0 10px 0;-webkit-overflow-scrolling:touch;">
+          <button class="filter-pill active" id="filterAll" onclick="setClipFilter('all')">🔥 All Clips (<span id="countAll">--</span>)</button>
+          <button class="filter-pill" id="filterSpeed" onclick="setClipFilter('IShowSpeed')" style="background:#FEE2E2;color:#991B1B;border-color:#FCA5A5;">🔴 IShowSpeed (<span id="countSpeed">--</span>)</button>
+          <button class="filter-pill" id="filterXqc" onclick="setClipFilter('xQc')" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD;">🟣 xQc (<span id="countXqc">--</span>)</button>
+          <button class="filter-pill" id="filterCurated" onclick="setClipFilter('curated')" style="background:#FEF3C7;color:#92400E;border-color:#FCD34D;">⭐ Top Curated Moments</button>
+        </div>
+
         <div class="clips-grid" id="allClipsGrid">
           <div style="color:var(--dim);grid-column:1/-1;text-align:center;padding:40px;">Loading clips...</div>
         </div>
@@ -3321,29 +3352,56 @@ async function regenerateAllAiCaptions() {
   }
 }
 
-async function loadAllClips() {
+let allClipsData = [];
+let currentClipFilter = 'all';
+
+function setClipFilter(filter) {
+  currentClipFilter = filter;
+  document.querySelectorAll('.filter-pill').forEach(btn => btn.classList.remove('active'));
+  const btnMap = {
+    'all': 'filterAll',
+    'IShowSpeed': 'filterSpeed',
+    'xQc': 'filterXqc',
+    'curated': 'filterCurated'
+  };
+  const activeBtn = document.getElementById(btnMap[filter]);
+  if (activeBtn) activeBtn.classList.add('active');
+  renderClipsGrid();
+}
+
+function renderClipsGrid() {
   const grid = document.getElementById('allClipsGrid');
-  grid.innerHTML = '<div style="color:var(--dim);grid-column:1/-1;text-align:center;padding:40px;">Loading clips library...</div>';
-  try {
-    const res = await fetch('/api/clips');
-    const clips = await res.json();
-    const mBadge = document.getElementById('mNavClipsBadge');
-    if (mBadge) mBadge.innerText = clips.length;
-    const topBadge = document.getElementById('mobileClipsCountBadge');
-    if (topBadge) topBadge.innerText = clips.length;
-    if (!clips.length) {
-      grid.innerHTML = '<div style="color:var(--dim);grid-column:1/-1;text-align:center;padding:40px;">No clips created yet. Render clips from your streams!</div>';
-      return;
-    }
-    grid.innerHTML = clips.map(c => `
+  if (!grid) return;
+  if (!allClipsData || !allClipsData.length) {
+    grid.innerHTML = '<div style="color:var(--dim);grid-column:1/-1;text-align:center;padding:40px;">No clips created yet. Render clips from your streams!</div>';
+    return;
+  }
+  let filtered = allClipsData;
+  if (currentClipFilter === 'IShowSpeed') {
+    filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('ishowspeed')));
+  } else if (currentClipFilter === 'xQc') {
+    filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc')));
+  } else if (currentClipFilter === 'curated') {
+    filtered = allClipsData.filter(c => c.curated || (c.score && c.score >= 90));
+  }
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div style="color:var(--dim);grid-column:1/-1;text-align:center;padding:40px;">No clips found for filter "${currentClipFilter}". Tap another tab above!</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(c => `
       <div class="clip-card">
         <div class="clip-video-box">
-          <video src="${c.video_url}?t=${c.mtime || Date.now()}" controls playsinline preload="metadata"></video>
+          <video src="${c.video_url}" poster="${c.thumb_url || ''}" controls playsinline preload="metadata"></video>
         </div>
         <div class="clip-info" style="padding:14px;display:flex;flex-direction:column;gap:8px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
             <span class="hook-badge" style="font-weight:700;font-size:13px;letter-spacing:-0.2px;">${escapeHtml(c.hook || c.title)}</span>
-            <span class="badge ${c.saved ? 'badge-ready' : 'badge-process'}" style="font-size:10.5px;">${c.saved ? '⭐ Saved' : '⏳ Temp'}</span>
+            <div style="display:flex;gap:4px;flex-shrink:0;">
+              ${(c.curated || (c.score && c.score >= 90)) ? '<span class="badge" style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:800;">⭐ Top Pick</span>' : ''}
+              <span class="badge ${c.saved ? 'badge-ready' : 'badge-process'}" style="font-size:10px;">${c.saved ? '💾 Saved' : '⏳ Temp'}</span>
+            </div>
           </div>
           <div style="font-size:12px;color:var(--dim);line-height:1.4;">${escapeHtml(c.caption || '')}</div>
           <div style="font-size:11px;color:#888;">${c.streamer} · ${c.size_mb} MB · 1080x1920 MP4</div>
@@ -3434,6 +3492,31 @@ async function loadAllClips() {
         </div>
       </div>
     `).join('');
+}
+
+async function loadAllClips() {
+  const grid = document.getElementById('allClipsGrid');
+  grid.innerHTML = '<div style="color:var(--dim);grid-column:1/-1;text-align:center;padding:40px;">Loading clips library...</div>';
+  try {
+    const res = await fetch('/api/clips');
+    const clips = await res.json();
+    allClipsData = clips;
+    const mBadge = document.getElementById('mNavClipsBadge');
+    if (mBadge) mBadge.innerText = clips.length;
+    const topBadge = document.getElementById('mobileClipsCountBadge');
+    if (topBadge) topBadge.innerText = clips.length;
+    
+    // Update filter counts
+    const speedCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('ishowspeed'))).length;
+    const xqcCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc'))).length;
+    const elSpeed = document.getElementById('countSpeed');
+    if (elSpeed) elSpeed.innerText = speedCount;
+    const elXqc = document.getElementById('countXqc');
+    if (elXqc) elXqc.innerText = xqcCount;
+    const elAll = document.getElementById('countAll');
+    if (elAll) elAll.innerText = clips.length;
+
+    renderClipsGrid();
   } catch (e) {
     grid.innerHTML = `<div style="color:var(--bad);grid-column:1/-1;text-align:center;padding:40px;">Error loading clips: ${e}</div>`;
   }

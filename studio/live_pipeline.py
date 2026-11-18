@@ -377,14 +377,26 @@ class LivePipelineSession:
             self._save_final_json()
 
     def _generate_hook(self, speech_sample: str, jump_db: float) -> str:
-        # Punchy heuristic hook generator
-        clean = re.sub(r"[^a-zA-Z0-9 ]", "", speech_sample).strip()
+        streamer_name = self.streamer or "Streamer"
+        lower = speech_sample.lower()
+        if "die" in lower or "dead" in lower or "kill" in lower:
+            return f"{streamer_name} Almost Died in GTA 6!"
+        if "cop" in lower or "police" in lower or "chase" in lower or "five star" in lower:
+            return f"{streamer_name} Wild 5-Star Police Chase"
+        if "car" in lower or "drive" in lower or "crash" in lower or "speed" in lower:
+            return f"{streamer_name} Insane GTA 6 High-Speed Moment!"
+        if "gun" in lower or "weapon" in lower or "shoot" in lower:
+            return f"{streamer_name} Finds Secret Weapon in GTA 6"
+        if "money" in lower or "broke" in lower or "cash" in lower or "dollar" in lower:
+            return f"{streamer_name} Loses All His Money in Vice City"
+        if jump_db >= 14.0:
+            return f"{streamer_name}'s Most Explosive GTA 6 Scream!"
+        clean = re.sub(r"[^a-zA-Z0-9 ']", "", speech_sample).strip()
         words = clean.split()
         if len(words) >= 4:
-            return " ".join(words[:5])
-        if jump_db >= 8.0:
-            return "INSANE LOUD REACTION"
-        return f"{self.streamer.upper()} LIVE MOMENT"
+            phrase = " ".join(words[:6]).title()
+            return f"\"{phrase}...\" - {streamer_name}"
+        return f"{streamer_name} Unreal GTA 6 Moment"
 
     def _render_worker(self):
         """Asynchronously renders vertical 9:16 clips on RTX 4050 GPU using NVENC."""

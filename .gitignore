@@ -17,6 +17,7 @@ storage.json
 
 # ---- this computer only
 cloudflared.exe
+speed_live.json
 .claude/
 CLAUDE.local.md
 .vscode/

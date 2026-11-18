@@ -922,15 +922,8 @@ def list_all_clips():
         
         stream_name = stream_key if stream_key != "vod" else (meta.get("stream") or "")
         effective_stream_key = stream_name or stream_key
-        clip_uid = f"{effective_stream_key}:{cid_val}"
+        clip_uid = f"{effective_stream_key}:{f.name}"
         if clip_uid in seen:
-            # Obsolete older version of this clip! Automatically purge from disk to free storage
-            if stream_key == "vod":
-                try:
-                    for old_f in f.parent.glob(f"{f.stem}.*"):
-                        old_f.unlink(missing_ok=True)
-                except Exception:
-                    pass
             return
         seen.add(clip_uid)
         if stream_name:
@@ -1002,6 +995,9 @@ def list_all_clips():
             "instagram_url": f_clip.get("instagram_url") if f_clip else meta.get("instagram_url"),
             "size_mb": round(f.stat().st_size / (1024 * 1024), 2),
             "saved": meta.get("saved", False),
+            "score": meta.get("score") or (f_clip.get("score") if f_clip else 80),
+            "curated": bool((f_clip and f_clip.get("score") and f_clip.get("score") >= 90) or (meta.get("score") and meta.get("score") >= 90)),
+            "mtime": f.stat().st_mtime,
             "created_at": f.stat().st_mtime
         })
 
@@ -1016,7 +1012,7 @@ def list_all_clips():
             for f in d.glob("*.mp4"):
                 add_clip(f, "vod")
 
-    clips.sort(key=lambda x: x["created_at"], reverse=True)
+    clips.sort(key=lambda x: (x.get("curated", False), x["created_at"]), reverse=True)
     return clips
 
 
