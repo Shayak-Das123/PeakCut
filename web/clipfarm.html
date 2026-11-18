@@ -146,6 +146,14 @@ aside {
   background: #3DDC97;
   box-shadow: 0 0 8px #3DDC97;
 }
+@keyframes liveStatusPulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.live-pulse {
+  animation: liveStatusPulse 1.4s ease-in-out infinite;
+}
 main {
   background: var(--bg);
   margin: 8px 8px 8px 0;
@@ -1596,6 +1604,14 @@ video::backdrop {
         </button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
+        <div id="serverStatusBadge" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;" title="PeakCut & ClipFarm server status">
+          <span id="serverStatusDot" class="live-pulse" style="width:8px;height:8px;border-radius:50%;background:#10B981;box-shadow:0 0 6px #10B981;"></span>
+          <span id="serverStatusText">Server Online (:8767)</span>
+        </div>
+        <div id="subagentStatusBadge" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;background:#FAF5FF;color:#7E22CE;border:1px solid #E9D5FF;" title="Antigravity Narrative Curation Subagent">
+          <span id="subagentStatusDot" style="width:8px;height:8px;border-radius:50%;background:#A855F7;"></span>
+          <span id="subagentStatusText">🧠 Subagent Ready</span>
+        </div>
         <button id="btnGlobalPauseGpu" class="btn btn-outline" style="border-color:#F59E0B;color:#B45309;background:#FFFBEB;font-weight:700;display:flex;align-items:center;gap:6px;" onclick="toggleGlobalGpuPause()" title="Pause all GPU pipelines, release NVENC and free VRAM">
           <span id="globalGpuPauseIcon">⏸️</span>
           <span id="globalGpuPauseText">Pause GPU</span>
@@ -2470,6 +2486,7 @@ async function stopLiveStream(clipNow) {
 async function fetchStatus() {
   try {
     const res = await fetch('/api/status');
+    if (!res.ok) throw new Error('Status ' + res.status);
     const data = await res.json();
     document.getElementById('diskFree').innerText = `${data.disk_free_gb} GB free`;
     if (data.gpu && data.gpu.available) {
@@ -2478,8 +2495,32 @@ async function fetchStatus() {
     if (data.facecam) {
       document.getElementById('faceCamName').innerText = data.facecam;
     }
+    const sBadge = document.getElementById('serverStatusBadge');
+    const sDot = document.getElementById('serverStatusDot');
+    const sText = document.getElementById('serverStatusText');
+    if (sBadge && sDot && sText) {
+      sBadge.style.background = '#ECFDF5';
+      sBadge.style.color = '#047857';
+      sBadge.style.borderColor = '#A7F3D0';
+      sDot.style.background = '#10B981';
+      sDot.style.boxShadow = '0 0 6px #10B981';
+      sDot.classList.add('live-pulse');
+      sText.innerText = 'Server Online (:8767)';
+    }
   } catch (e) {
     console.error(e);
+    const sBadge = document.getElementById('serverStatusBadge');
+    const sDot = document.getElementById('serverStatusDot');
+    const sText = document.getElementById('serverStatusText');
+    if (sBadge && sDot && sText) {
+      sBadge.style.background = '#FEF2F2';
+      sBadge.style.color = '#DC2626';
+      sBadge.style.borderColor = '#FCA5A5';
+      sDot.style.background = '#EF4444';
+      sDot.style.boxShadow = 'none';
+      sDot.classList.remove('live-pulse');
+      sText.innerText = 'Server Offline';
+    }
   }
   checkLiveStatus();
   loadStreams();
@@ -2502,6 +2543,31 @@ async function loadStreams() {
   try {
     const res = await fetch('/api/streams');
     const streams = await res.json();
+
+    const subCurating = streams.some(s => s.job && !s.job.done && (s.job.action === 'ai_curation' || s.job.action === 'subagent_curation'));
+    const subBadge = document.getElementById('subagentStatusBadge');
+    const subDot = document.getElementById('subagentStatusDot');
+    const subText = document.getElementById('subagentStatusText');
+    if (subBadge && subDot && subText) {
+      if (subCurating) {
+        subBadge.style.background = '#FAF5FF';
+        subBadge.style.color = '#7E22CE';
+        subBadge.style.borderColor = '#C084FC';
+        subDot.style.background = '#A855F7';
+        subDot.style.boxShadow = '0 0 8px #A855F7';
+        subDot.classList.add('live-pulse');
+        subText.innerText = '⚡ Subagent Curating...';
+      } else {
+        subBadge.style.background = '#FAF5FF';
+        subBadge.style.color = '#7E22CE';
+        subBadge.style.borderColor = '#E9D5FF';
+        subDot.style.background = '#A855F7';
+        subDot.style.boxShadow = 'none';
+        subDot.classList.remove('live-pulse');
+        subText.innerText = '🧠 Subagent Ready';
+      }
+    }
+
     document.getElementById('streamCount').innerText = `${streams.length} stream${streams.length === 1 ? '' : 's'}`;
     const list = document.getElementById('streamsList');
     if (!streams.length) {
