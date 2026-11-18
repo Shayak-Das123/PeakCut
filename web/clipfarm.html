@@ -1944,26 +1944,207 @@ video::backdrop {
 
     <!-- SOCIAL POSTING TAB -->
     <div class="content" id="tabSocial" style="display:none;">
-      <div class="card">
-        <div class="card-title">YouTube Shorts & Instagram Reels Direct Publishing</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:800px;">
-          <div style="border:1px solid var(--line);border-radius:var(--r-sm);padding:16px;background:var(--muted);">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="#FF0000"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon fill="#FFF" points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
-              <b>YouTube Shorts</b>
+      <!-- CARD 1: AUTONOMOUS ZERO-SUPERVISION AUTO-PILOT -->
+      <div class="card" style="border:1px solid #3b82f6;background:linear-gradient(180deg, rgba(59,130,246,0.06) 0%, rgba(24,24,27,0.8) 100%);box-shadow:0 0 20px rgba(59,130,246,0.1);margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:24px;">🤖</span>
+            <div>
+              <b style="font-size:16px;color:#fff;">Autonomous Zero-Supervision Auto-Pilot Mode</b>
+              <div style="font-size:12px;color:var(--dim);">Fully autonomous pipeline: clips are auto-published the instant rendering finishes.</div>
             </div>
-            <p style="font-size:12.5px;color:var(--dim);">Upload vertical clips with custom titles, descriptions, and #Shorts tags directly to your YouTube channel.</p>
-            <a href="http://127.0.0.1:8765/app#settings" target="_blank" class="btn btn-sm btn-outline" style="margin-top:8px;">Connect in Settings</a>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span id="autopostStatusPill" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:#27272a;color:#a1a1aa;">OFFLINE</span>
+            <label style="position:relative;display:inline-block;width:48px;height:26px;cursor:pointer;">
+              <input type="checkbox" id="autopostMasterToggle" onchange="toggleAutoPilotMaster(this.checked)" style="opacity:0;width:0;height:0;">
+              <span id="autopostToggleTrack" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#3f3f46;transition:.3s;border-radius:26px;">
+                <span id="autopostToggleThumb" style="position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:white;transition:.3s;border-radius:50%;"></span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <p style="font-size:12.5px;color:#d4d4d8;line-height:1.5;margin-bottom:16px;">
+          When enabled, you can provide any livestream link or leave watched creators running. As soon as RTX NVENC completes encoding newly curated clips, ClipFarm automatically posts them directly to your connected YouTube Shorts and Instagram Reels channels without any supervision.
+        </p>
+
+        <div style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:14px;display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;">
+              <input type="checkbox" id="autopostYtCheck" style="width:16px;height:16px;accent-color:#FF0000;">
+              Auto-Post to YouTube Shorts
+            </label>
+            <div style="font-size:11px;color:var(--dim);margin-top:4px;">Uploads vertical 9:16 Shorts with viral hooks & hashtags.</div>
           </div>
 
-          <div style="border:1px solid var(--line);border-radius:var(--r-sm);padding:16px;background:var(--muted);">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="#E1306C"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path fill="#FFF" d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" stroke="#FFF" stroke-width="2"></line></svg>
-              <b>Instagram Reels</b>
-            </div>
-            <p style="font-size:12.5px;color:var(--dim);">Publish directly to your connected Instagram account with ready captions and hashtags.</p>
-            <a href="http://127.0.0.1:8765/app#settings" target="_blank" class="btn btn-sm btn-outline" style="margin-top:8px;">Connect in Settings</a>
+          <div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;">
+              <input type="checkbox" id="autopostIgCheck" style="width:16px;height:16px;accent-color:#E1306C;">
+              Auto-Post to Instagram Reels
+            </label>
+            <div style="font-size:11px;color:var(--dim);margin-top:4px;">Publishes 9:16 Reels with dynamic captions & tags.</div>
           </div>
+
+          <div>
+            <span style="font-size:12px;font-weight:700;color:#a1a1aa;display:block;margin-bottom:4px;">YouTube Privacy</span>
+            <select id="autopostPrivacySelect" style="width:100%;background:#09090b;border:1px solid #3f3f46;color:#fff;padding:6px 8px;border-radius:6px;font-size:12px;">
+              <option value="public">Public (Instant Viral Reach)</option>
+              <option value="unlisted">Unlisted (Link Only)</option>
+              <option value="private">Private (Draft Review)</option>
+            </select>
+          </div>
+
+          <div>
+            <span style="font-size:12px;font-weight:700;color:#a1a1aa;display:block;margin-bottom:4px;">Max Clips per Stream</span>
+            <input type="number" id="autopostMaxClipsInput" min="1" max="10" value="5" style="width:100%;background:#09090b;border:1px solid #3f3f46;color:#fff;padding:6px 8px;border-radius:6px;font-size:12px;">
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;">
+          <button class="btn btn-sm" style="background:#3b82f6;color:#fff;font-weight:700;" onclick="saveAutoPilotSettings()">💾 Save Auto-Pilot Preferences</button>
+        </div>
+      </div>
+
+      <!-- CARD 2: CONNECTED PLATFORMS HUB -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+        <!-- YOUTUBE SHORTS CARD -->
+        <div class="card" style="margin-bottom:0;display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="#FF0000"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon fill="#FFF" points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
+                <div>
+                  <b style="font-size:16px;">YouTube Shorts</b>
+                  <div style="font-size:11.5px;color:var(--dim);">Direct API resumable upload to channel</div>
+                </div>
+              </div>
+              <span id="ytConnBadge" class="badge" style="background:#27272a;color:#a1a1aa;">Checking...</span>
+            </div>
+
+            <!-- YouTube Connected Box -->
+            <div id="ytConnectedBox" style="display:none;background:#052e16;border:1px solid #166534;border-radius:8px;padding:12px;margin-bottom:12px;">
+              <div style="font-size:13px;font-weight:700;color:#4ade80;" id="ytChannelName">Connected: @Channel</div>
+              <div style="font-size:11.5px;color:#86efac;margin-top:2px;" id="ytChannelDetail">Ready for 1-click & auto-pilot publishing.</div>
+              <div style="margin-top:8px;">
+                <button class="btn btn-sm btn-outline" style="color:#ef4444;border-color:#7f1d1d;font-size:11px;" onclick="disconnectPlatform('youtube')">Disconnect Channel</button>
+              </div>
+            </div>
+
+            <!-- YouTube Disconnected / Setup Box -->
+            <div id="ytDisconnectedBox">
+              <p style="font-size:12.5px;color:var(--dim);margin-bottom:12px;">
+                Connect your YouTube channel to post vertical shorts in 1 click or autonomously without leaving ClipFarm.
+              </p>
+
+              <div id="ytOAuthReadyBox" style="display:none;margin-bottom:12px;">
+                <a href="/oauth/youtube/start" class="btn btn-social" style="width:100%;text-align:center;padding:10px;font-weight:700;display:block;">
+                  🔗 Connect YouTube Account (Google Sign-In)
+                </a>
+                <div style="text-align:center;margin-top:8px;">
+                  <a href="javascript:void(0)" onclick="toggleYtSetupDrawer()" style="font-size:11.5px;color:#38bdf8;text-decoration:none;">⚙️ Change Google Client ID / Secret</a>
+                </div>
+              </div>
+
+              <!-- Google App Setup Drawer -->
+              <div id="ytSetupDrawer" style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:12px;">
+                <b style="font-size:12px;color:#fff;display:block;margin-bottom:6px;">Google Cloud OAuth Configuration</b>
+                <div style="font-size:11px;color:var(--dim);line-height:1.4;margin-bottom:10px;">
+                  1. In <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#38bdf8;">Google Cloud Console</a>, enable <b>YouTube Data API v3</b>.<br>
+                  2. Create an OAuth 2.0 Client ID (Web Application) and add this Authorized Redirect URI:
+                </div>
+                <div style="display:flex;gap:4px;margin-bottom:10px;">
+                  <input type="text" id="ytRedirectInput" readonly value="http://127.0.0.1:8767/oauth/youtube/callback" style="flex:1;background:#09090b;border:1px solid #3f3f46;color:#38bdf8;font-size:10.5px;padding:4px 6px;border-radius:4px;font-family:monospace;">
+                  <button class="btn btn-sm btn-outline" style="font-size:10px;" onclick="copyInput('ytRedirectInput')">Copy</button>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+                  <input type="text" id="ytClientId" placeholder="Google Client ID (e.g. xxx.apps.googleusercontent.com)" style="background:#09090b;border:1px solid #3f3f46;color:#fff;font-size:11px;padding:5px 8px;border-radius:4px;">
+                  <input type="password" id="ytClientSecret" placeholder="Google Client Secret (GOCSPX-...)" style="background:#09090b;border:1px solid #3f3f46;color:#fff;font-size:11px;padding:5px 8px;border-radius:4px;">
+                </div>
+
+                <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+                  <label class="btn btn-sm btn-outline" style="font-size:10.5px;cursor:pointer;">
+                    📄 Upload client_secrets.json
+                    <input type="file" id="ytSecretsFile" accept=".json" style="display:none;" onchange="handleSecretsUpload(this)">
+                  </label>
+                  <button class="btn btn-sm btn-social" style="font-size:11px;" onclick="saveGoogleAppCredentials()">💾 Save & Connect</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- INSTAGRAM REELS CARD -->
+        <div class="card" style="margin-bottom:0;display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="#E1306C"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path fill="#FFF" d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" stroke="#FFF" stroke-width="2"></line></svg>
+                <div>
+                  <b style="font-size:16px;">Instagram Reels</b>
+                  <div style="font-size:11.5px;color:var(--dim);">Meta Graph API Reels publishing</div>
+                </div>
+              </div>
+              <span id="igConnBadge" class="badge" style="background:#27272a;color:#a1a1aa;">Checking...</span>
+            </div>
+
+            <!-- Instagram Connected Box -->
+            <div id="igConnectedBox" style="display:none;background:#2e1065;border:1px solid #581c87;border-radius:8px;padding:12px;margin-bottom:12px;">
+              <div style="font-size:13px;font-weight:700;color:#c084fc;" id="igAccountName">Connected: @instagram</div>
+              <div style="font-size:11.5px;color:#e9d5ff;margin-top:2px;" id="igAccountDetail">Creator/Business Account ready for Reels.</div>
+              <div style="margin-top:8px;">
+                <button class="btn btn-sm btn-outline" style="color:#ef4444;border-color:#7f1d1d;font-size:11px;" onclick="disconnectPlatform('instagram')">Disconnect Account</button>
+              </div>
+            </div>
+
+            <!-- Instagram Disconnected / Setup Box -->
+            <div id="igDisconnectedBox">
+              <p style="font-size:12.5px;color:var(--dim);margin-bottom:12px;">
+                Connect your Instagram Creator or Business account with Meta Graph API access to publish Reels directly.
+              </p>
+
+              <!-- Option 1: Direct Token -->
+              <div style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:12px;margin-bottom:12px;">
+                <b style="font-size:12px;color:#fff;display:block;margin-bottom:4px;">Quick Connect with Meta Access Token (Instant)</b>
+                <div style="font-size:11px;color:var(--dim);line-height:1.4;margin-bottom:8px;">
+                  Paste a User or Page Token from <a href="https://developers.facebook.com/tools/explorer/" target="_blank" style="color:#38bdf8;">Meta Graph Explorer</a> (needs <code>instagram_business_content_publish</code>):
+                </div>
+                <div style="display:flex;gap:6px;">
+                  <input type="password" id="igDirectToken" placeholder="Paste IG / Meta Access Token (IGAA... or EAAB...)" style="flex:1;background:#09090b;border:1px solid #3f3f46;color:#fff;font-size:11px;padding:5px 8px;border-radius:4px;">
+                  <button class="btn btn-sm" style="background:#E1306C;color:#fff;font-weight:700;font-size:11px;" onclick="connectInstagramToken()">🔗 Connect</button>
+                </div>
+              </div>
+
+              <!-- Option 2: Meta App OAuth -->
+              <details style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:10px 12px;">
+                <summary style="font-size:11.5px;font-weight:700;color:#a1a1aa;cursor:pointer;">Or Connect via Meta App ID & Secret</summary>
+                <div style="margin-top:10px;font-size:11px;color:var(--dim);line-height:1.4;">
+                  Authorized Redirect URI:
+                  <div style="display:flex;gap:4px;margin:4px 0 8px 0;">
+                    <input type="text" id="igRedirectInput" readonly value="http://127.0.0.1:8767/oauth/instagram/callback" style="flex:1;background:#09090b;border:1px solid #3f3f46;color:#38bdf8;font-size:10.5px;padding:3px 6px;border-radius:4px;font-family:monospace;">
+                    <button class="btn btn-sm btn-outline" style="font-size:10px;" onclick="copyInput('igRedirectInput')">Copy</button>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+                    <input type="text" id="igAppId" placeholder="Instagram / Meta App ID" style="background:#09090b;border:1px solid #3f3f46;color:#fff;font-size:11px;padding:5px 8px;border-radius:4px;">
+                    <input type="password" id="igAppSecret" placeholder="Instagram / Meta App Secret" style="background:#09090b;border:1px solid #3f3f46;color:#fff;font-size:11px;padding:5px 8px;border-radius:4px;">
+                  </div>
+                  <button class="btn btn-sm btn-social" style="background:#E1306C;font-size:11px;width:100%;" onclick="saveInstagramAppCredentials()">💾 Save App & Connect</button>
+                </div>
+              </details>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CARD 3: RECENT PUBLISHING ACTIVITY & HISTORY -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <b style="font-size:15px;">📜 Publishing Activity & Feed</b>
+          <button class="btn btn-sm btn-outline" style="font-size:11px;" onclick="loadSocialHub()">🔄 Refresh Feed</button>
+        </div>
+        <div id="publishingHistoryList" style="display:flex;flex-direction:column;gap:8px;">
+          <div style="color:var(--dim);font-size:12.5px;padding:20px;text-align:center;">No videos published yet. Post a clip above or enable Autonomous Auto-Pilot!</div>
         </div>
       </div>
     </div>
@@ -2958,8 +3139,16 @@ async function loadAllClips() {
               <button class="btn btn-sm btn-outline" style="color:var(--bad);border-color:var(--bad-soft);" onclick="deleteClip('${c.filename}')">🗑️ Delete</button>
             </div>
             <div style="display:flex;gap:6px;">
-              <button class="btn btn-sm btn-social" style="flex:1;" onclick="postToSocial('youtube', '${c.filename}')">Post to Shorts</button>
-              <button class="btn btn-sm btn-social" style="flex:1;background:#E1306C;" onclick="postToSocial('instagram', '${c.filename}')">Post to Reels</button>
+              ${c.youtube_url ? `
+                <a href="${c.youtube_url}" target="_blank" class="btn btn-sm btn-social" style="flex:1;background:#15803d;text-decoration:none;text-align:center;font-weight:700;">▶ View Short</a>
+              ` : `
+                <button class="btn btn-sm btn-social" id="btnYt_${c.filename.replace(/[^a-zA-Z0-9]/g, '_')}" style="flex:1;" onclick="postToSocial('youtube', '${c.filename}', this)">Post to Shorts</button>
+              `}
+              ${c.instagram_url ? `
+                <a href="${c.instagram_url}" target="_blank" class="btn btn-sm btn-social" style="flex:1;background:#be185d;text-decoration:none;text-align:center;font-weight:700;">▶ View Reel</a>
+              ` : `
+                <button class="btn btn-sm btn-social" id="btnIg_${c.filename.replace(/[^a-zA-Z0-9]/g, '_')}" style="flex:1;background:#E1306C;" onclick="postToSocial('instagram', '${c.filename}', this)">Post to Reels</button>
+              `}
             </div>
 
             <!-- ⚡ Quick Edit & Adjust Drawer (No Editor Needed) -->
@@ -3163,7 +3352,12 @@ function copyCaption(text) {
   alert('Caption & hashtags copied to clipboard!');
 }
 
-async function postToSocial(platform, filename) {
+async function postToSocial(platform, filename, btnEl) {
+  const origText = btnEl ? btnEl.innerHTML : '';
+  if (btnEl) {
+    btnEl.innerHTML = '⏳ Uploading...';
+    btnEl.disabled = true;
+  }
   try {
     const res = await fetch('/api/post/clip', {
       method: 'POST',
@@ -3171,9 +3365,317 @@ async function postToSocial(platform, filename) {
       body: JSON.stringify({ platform, filename })
     });
     const d = await res.json();
-    alert(d.message);
+    if (!res.ok) {
+      if (res.status === 400 && (d.detail || '').includes('No connected')) {
+        if (confirm(`⚠️ Not Connected:\n\n${d.detail}\n\nWould you like to open the Social Posting tab to connect it now?`)) {
+          switchTab('social');
+        }
+      } else {
+        alert('❌ Posting failed: ' + (d.detail || d.message || res.statusText));
+      }
+      if (btnEl) {
+        btnEl.innerHTML = origText;
+        btnEl.disabled = false;
+      }
+      return;
+    }
+
+    if (btnEl) {
+      btnEl.innerHTML = platform === 'youtube' ? '✅ View Short' : '✅ View Reel';
+      btnEl.style.background = platform === 'youtube' ? '#15803d' : '#be185d';
+      btnEl.disabled = false;
+      btnEl.onclick = () => window.open(d.url, '_blank');
+    }
+    alert(`🎉 Successfully posted to ${platform === 'youtube' ? 'YouTube Shorts' : 'Instagram Reels'}!\n\nLink: ${d.url}`);
+    loadAllClips();
   } catch (e) {
     alert('Posting error: ' + e);
+    if (btnEl) {
+      btnEl.innerHTML = origText;
+      btnEl.disabled = false;
+    }
+  }
+}
+
+let socialAccountsCache = [];
+let socialAppsCache = {};
+let autoPilotCache = {};
+
+async function loadSocialHub() {
+  try {
+    const [accRes, autoRes] = await Promise.all([
+      fetch('/api/accounts'),
+      fetch('/api/autopost/settings')
+    ]);
+    const accData = await accRes.json();
+    const autoData = await autoRes.json();
+
+    socialAccountsCache = accData.accounts || [];
+    socialAppsCache = accData.apps || {};
+    autoPilotCache = autoData.settings || {};
+
+    const ytAcc = socialAccountsCache.find(a => a.platform === 'youtube');
+    const igAcc = socialAccountsCache.find(a => a.platform === 'instagram');
+
+    // 1. YouTube UI State
+    const ytBadge = document.getElementById('ytConnBadge');
+    const ytConnBox = document.getElementById('ytConnectedBox');
+    const ytDisconnBox = document.getElementById('ytDisconnectedBox');
+    const ytOAuthBox = document.getElementById('ytOAuthReadyBox');
+    const ytSetup = document.getElementById('ytSetupDrawer');
+
+    if (ytAcc) {
+      if (ytBadge) {
+        ytBadge.innerText = 'Connected';
+        ytBadge.style.background = '#052e16';
+        ytBadge.style.color = '#4ade80';
+      }
+      if (ytConnBox) {
+        ytConnBox.style.display = 'block';
+        document.getElementById('ytChannelName').innerText = `Connected: ${ytAcc.name}`;
+        document.getElementById('ytChannelDetail').innerText = ytAcc.detail || 'YouTube Channel active & ready for uploads.';
+      }
+      if (ytDisconnBox) ytDisconnBox.style.display = 'none';
+    } else {
+      if (ytBadge) {
+        ytBadge.innerText = 'Not Connected';
+        ytBadge.style.background = '#27272a';
+        ytBadge.style.color = '#a1a1aa';
+      }
+      if (ytConnBox) ytConnBox.style.display = 'none';
+      if (ytDisconnBox) ytDisconnBox.style.display = 'block';
+
+      const isYtReady = socialAppsCache.youtube && socialAppsCache.youtube.ready;
+      if (ytOAuthBox) ytOAuthBox.style.display = isYtReady ? 'block' : 'none';
+      if (ytSetup) ytSetup.style.display = isYtReady ? 'none' : 'block';
+    }
+
+    // 2. Instagram UI State
+    const igBadge = document.getElementById('igConnBadge');
+    const igConnBox = document.getElementById('igConnectedBox');
+    const igDisconnBox = document.getElementById('igDisconnectedBox');
+
+    if (igAcc) {
+      if (igBadge) {
+        igBadge.innerText = 'Connected';
+        igBadge.style.background = '#2e1065';
+        igBadge.style.color = '#c084fc';
+      }
+      if (igConnBox) {
+        igConnBox.style.display = 'block';
+        document.getElementById('igAccountName').innerText = `Connected: ${igAcc.name}`;
+        document.getElementById('igAccountDetail').innerText = igAcc.detail || 'Instagram Creator/Business Account active.';
+      }
+      if (igDisconnBox) igDisconnBox.style.display = 'none';
+    } else {
+      if (igBadge) {
+        igBadge.innerText = 'Not Connected';
+        igBadge.style.background = '#27272a';
+        igBadge.style.color = '#a1a1aa';
+      }
+      if (igConnBox) igConnBox.style.display = 'none';
+      if (igDisconnBox) igDisconnBox.style.display = 'block';
+    }
+
+    // 3. Autonomous Auto-Pilot State
+    const masterToggle = document.getElementById('autopostMasterToggle');
+    const statusPill = document.getElementById('autopostStatusPill');
+    const isAuto = Boolean(autoPilotCache.enabled);
+    if (masterToggle) masterToggle.checked = isAuto;
+    updateAutoPilotVisualTrack(isAuto);
+
+    if (statusPill) {
+      statusPill.innerText = isAuto ? '🟢 ACTIVE (AUTONOMOUS)' : 'OFFLINE';
+      statusPill.style.background = isAuto ? '#052e16' : '#27272a';
+      statusPill.style.color = isAuto ? '#4ade80' : '#a1a1aa';
+    }
+
+    const ytCheck = document.getElementById('autopostYtCheck');
+    const igCheck = document.getElementById('autopostIgCheck');
+    const privSelect = document.getElementById('autopostPrivacySelect');
+    const maxInput = document.getElementById('autopostMaxClipsInput');
+
+    if (ytCheck) ytCheck.checked = Boolean(autoPilotCache.post_youtube);
+    if (igCheck) igCheck.checked = Boolean(autoPilotCache.post_instagram);
+    if (privSelect) privSelect.value = autoPilotCache.youtube_privacy || 'public';
+    if (maxInput) maxInput.value = autoPilotCache.max_clips_per_stream || 5;
+
+    // 4. Render History
+    renderPublishingHistory(autoPilotCache.history || []);
+  } catch (e) {
+    console.error('Failed to load social hub:', e);
+  }
+}
+
+function updateAutoPilotVisualTrack(isOn) {
+  const track = document.getElementById('autopostToggleTrack');
+  const thumb = document.getElementById('autopostToggleThumb');
+  if (track && thumb) {
+    track.style.background = isOn ? '#3b82f6' : '#3f3f46';
+    thumb.style.left = isOn ? '25px' : '3px';
+  }
+}
+
+async function toggleAutoPilotMaster(isOn) {
+  updateAutoPilotVisualTrack(isOn);
+  const statusPill = document.getElementById('autopostStatusPill');
+  if (statusPill) {
+    statusPill.innerText = isOn ? '🟢 ACTIVE (AUTONOMOUS)' : 'OFFLINE';
+    statusPill.style.background = isOn ? '#052e16' : '#27272a';
+    statusPill.style.color = isOn ? '#4ade80' : '#a1a1aa';
+  }
+  await saveAutoPilotSettings(false);
+}
+
+async function saveAutoPilotSettings(showAlert = true) {
+  const payload = {
+    enabled: Boolean(document.getElementById('autopostMasterToggle').checked),
+    post_youtube: Boolean(document.getElementById('autopostYtCheck').checked),
+    post_instagram: Boolean(document.getElementById('autopostIgCheck').checked),
+    youtube_privacy: document.getElementById('autopostPrivacySelect').value || 'public',
+    max_clips_per_stream: parseInt(document.getElementById('autopostMaxClipsInput').value || '5', 10)
+  };
+  try {
+    const res = await fetch('/api/autopost/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    if (showAlert) alert('💾 Autonomous Auto-Pilot settings saved successfully!');
+  } catch (e) {
+    alert('Failed to save settings: ' + e);
+  }
+}
+
+function renderPublishingHistory(items) {
+  const container = document.getElementById('publishingHistoryList');
+  if (!container) return;
+  if (!items || items.length === 0) {
+    container.innerHTML = '<div style="color:var(--dim);font-size:12.5px;padding:20px;text-align:center;">No videos published yet. Post a clip above or enable Autonomous Auto-Pilot!</div>';
+    return;
+  }
+  container.innerHTML = items.slice(0, 15).map(it => {
+    const isYt = it.platform === 'youtube';
+    const platColor = isYt ? '#FF0000' : '#E1306C';
+    const platName = isYt ? 'YouTube Shorts' : 'Instagram Reels';
+    const timeStr = new Date((it.timestamp || Date.now() / 1000) * 1000).toLocaleString();
+    return `
+      <div style="background:#18181b;border:1px solid #27272a;border-radius:6px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;background:${platColor}22;color:${platColor};border:1px solid ${platColor}44;">${platName}</span>
+          <div>
+            <b style="font-size:13px;color:#fff;">${escapeHtml(it.title || it.filename || 'Clip')}</b>
+            <div style="font-size:11px;color:var(--dim);">${timeStr} · ${escapeHtml(it.filename || '')}</div>
+          </div>
+        </div>
+        <div>
+          ${it.url ? `<a href="${it.url}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px;color:#38bdf8;text-decoration:none;">▶ View Online</a>` : `<span style="font-size:11px;color:#ef4444;">Failed: ${escapeHtml(it.error || 'Error')}</span>`}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleYtSetupDrawer() {
+  const d = document.getElementById('ytSetupDrawer');
+  if (d) d.style.display = (d.style.display === 'none' || !d.style.display) ? 'block' : 'none';
+}
+
+function copyInput(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.value);
+  alert('Copied to clipboard: ' + el.value);
+}
+
+async function saveGoogleAppCredentials() {
+  const cid = (document.getElementById('ytClientId').value || '').trim();
+  const secret = (document.getElementById('ytClientSecret').value || '').trim();
+  if (!cid || !secret) {
+    return alert('Please enter both Google Client ID and Client Secret.');
+  }
+  try {
+    const res = await fetch('/api/accounts/save-app', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform: 'youtube', client_id: cid, client_secret: secret })
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || res.statusText);
+    alert('✅ Google OAuth credentials saved successfully!\n\nRedirecting to Google Sign-In to connect your YouTube channel...');
+    window.location.href = '/oauth/youtube/start';
+  } catch (e) {
+    alert('Failed to save Google credentials: ' + e.message);
+  }
+}
+
+async function handleSecretsUpload(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const res = await fetch('/api/accounts/upload-secrets', { method: 'POST', body: form });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || res.statusText);
+    alert('✅ client_secrets.json uploaded and configured successfully!\n\nRedirecting to Google Sign-In...');
+    window.location.href = '/oauth/youtube/start';
+  } catch (e) {
+    alert('Upload failed: ' + e.message);
+  }
+}
+
+async function connectInstagramToken() {
+  const token = (document.getElementById('igDirectToken').value || '').trim();
+  if (!token) return alert('Please paste your Instagram / Meta Access Token.');
+  try {
+    const res = await fetch('/api/accounts/direct-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform: 'instagram', token })
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || res.statusText);
+    alert('🎉 Successfully connected Instagram account: ' + d.account.name + ' (' + (d.account.detail || 'Creator/Business') + ')');
+    loadSocialHub();
+  } catch (e) {
+    alert('Connection failed: ' + e.message);
+  }
+}
+
+async function saveInstagramAppCredentials() {
+  const appId = (document.getElementById('igAppId').value || '').trim();
+  const secret = (document.getElementById('igAppSecret').value || '').trim();
+  if (!appId || !secret) {
+    return alert('Please enter both Instagram App ID and App Secret.');
+  }
+  try {
+    const res = await fetch('/api/accounts/save-app', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform: 'instagram', client_id: appId, client_secret: secret })
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || res.statusText);
+    alert('✅ Instagram App credentials saved!\n\nRedirecting to Instagram authorization...');
+    window.location.href = '/oauth/instagram/start';
+  } catch (e) {
+    alert('Failed to save Instagram credentials: ' + e.message);
+  }
+}
+
+async function disconnectPlatform(platform) {
+  const acc = socialAccountsCache.find(a => a.platform === platform);
+  if (!acc) return;
+  if (!confirm(`Are you sure you want to disconnect ${acc.name} (${platform})?`)) return;
+  try {
+    await fetch(`/api/accounts/${acc.id}`, { method: 'DELETE' });
+    alert(`Disconnected ${acc.name}.`);
+    loadSocialHub();
+    loadAllClips();
+  } catch (e) {
+    alert('Error disconnecting: ' + e);
   }
 }
 
@@ -5739,6 +6241,8 @@ function switchTab(tab) {
     loadAllClips();
   } else if (tab === 'storage') {
     loadStorageOverview();
+  } else if (tab === 'social') {
+    loadSocialHub();
   }
 }
 
@@ -5879,6 +6383,22 @@ function escapeJs(str) {
 fetchStatus();
 setInterval(fetchStatus, 6000);
 setInterval(checkLiveStatus, 2000);
+
+// Check OAuth callback redirect or social hash on load
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('connected')) {
+  const plat = urlParams.get('connected');
+  const name = urlParams.get('acc_name') || '';
+  alert(`🎉 Successfully connected ${plat === 'youtube' ? 'YouTube' : 'Instagram'}${name ? ': ' + name : ''}!`);
+  window.history.replaceState({}, document.title, window.location.pathname + '#social');
+  switchTab('social');
+} else if (urlParams.get('connect_error')) {
+  alert(`⚠️ Connection Notice: ${urlParams.get('connect_error')}`);
+  window.history.replaceState({}, document.title, window.location.pathname + '#social');
+  switchTab('social');
+} else if (window.location.hash === '#social') {
+  switchTab('social');
+}
 </script>
 </body>
 </html>

@@ -45,6 +45,189 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 from clipfarm import captions, face, fetch, listen, render, shortlist, signals, stream, util
 from clipfarm.util import hms, read_json, save_settings, settings, stream_dir, write_json
 
+from urllib.parse import quote
+from fastapi.responses import RedirectResponse
+from studio import accounts, config, ctx
+
+# Configure server public URL and default port for OAuth callbacks
+config.PORT = int(os.environ.get("CLIPFARM_PORT", 8767))
+config.PUBLIC_URL = f"http://127.0.0.1:{config.PORT}"
+
+AUTOPOST_SETTINGS_FILE = ROOT / "ClipFarm" / "data" / "autopost.json"
+AUTOPOST_SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+DEFAULT_AUTOPOST_SETTINGS = {
+    "enabled": False,
+    "post_youtube": False,
+    "post_instagram": False,
+    "youtube_privacy": "public",
+    "max_clips_per_stream": 5,
+    "delay_seconds": 20,
+    "history": []
+}
+
+
+def get_autopost_settings() -> dict:
+    if not AUTOPOST_SETTINGS_FILE.exists():
+        return dict(DEFAULT_AUTOPOST_SETTINGS)
+    try:
+        data = read_json(AUTOPOST_SETTINGS_FILE, DEFAULT_AUTOPOST_SETTINGS)
+        return {**DEFAULT_AUTOPOST_SETTINGS, **data}
+    except Exception:
+        return dict(DEFAULT_AUTOPOST_SETTINGS)
+
+
+def save_autopost_settings(data: dict) -> dict:
+    cur = get_autopost_settings()
+    cur.update(data)
+    write_json(AUTOPOST_SETTINGS_FILE, cur)
+    return cur
+
+
+def record_post_history(platform: str, filename: str, url: str, post_id: str, title: str, error: str = ""):
+    cur = get_autopost_settings()
+    hist = cur.get("history", [])
+    entry = {
+        "timestamp": time.time(),
+        "platform": platform,
+        "filename": filename,
+        "url": url,
+        "post_id": post_id,
+        "title": title,
+        "error": error,
+        "success": bool(url and not error)
+    }
+    hist.insert(0, entry)
+    cur["history"] = hist[:100]
+    write_json(AUTOPOST_SETTINGS_FILE, cur)
+
+
+def get_clip_metadata_for_file(filename: str) -> dict:
+    if not filename:
+        return {}
+    cid = filename.split("_")[0]
+    for s_dir in (WORK_DIR / "streams").glob("*"):
+        final_f = s_dir / "final.json"
+        if final_f.exists():
+            final_data = read_json(final_f, {})
+            for c in final_data.get("clips", []):
+                if match_clip_id(c.get("id"), cid) or c.get("file") == filename:
+                    return c
+    return {}
+
+
+def trigger_autopost_for_stream(stream_key: str):
+    """
+    Autonomous Zero-Supervision Auto-Poster:
+    Called as soon as a stream finishes rendering clips.
+    Inspects autopost settings, queries connected platforms,
+    and automatically uploads new clips without user intervention.
+    """
+    ctx.set_uid("u_local")
+    st = get_autopost_settings()
+    if not st.get("enabled"):
+        return
+
+    post_yt = bool(st.get("post_youtube", False))
+    post_ig = bool(st.get("post_instagram", False))
+    if not post_yt and not post_ig:
+        return
+
+    all_accs = accounts._all()
+    yt_acc = next((a for a in all_accs if a.get("platform") == "youtube"), None)
+    ig_acc = next((a for a in all_accs if a.get("platform") == "instagram"), None)
+
+    if post_yt and not yt_acc:
+        print(f"[AutoPost] YouTube auto-posting enabled, but no YouTube account connected.")
+    if post_ig and not ig_acc:
+        print(f"[AutoPost] Instagram auto-posting enabled, but no Instagram account connected.")
+
+    if not yt_acc and not ig_acc:
+        return
+
+    d = stream_dir(stream_key)
+    final_f = d / "final.json"
+    if not final_f.exists():
+        return
+
+    final_data = read_json(final_f, {"clips": []})
+    clips = final_data.get("clips", [])
+    if not clips:
+        return
+
+    autopost_log_f = d / "autopost_log.json"
+    autopost_log = read_json(autopost_log_f, {})
+
+    max_clips = int(st.get("max_clips_per_stream", 5))
+    delay_s = int(st.get("delay_seconds", 20))
+    posted_count = 0
+
+    print(f"\n[AutoPost] 🤖 Triggering autonomous zero-supervision auto-posting for stream '{stream_key}' ({len(clips)} total clips)...")
+
+    for clip in clips[:max_clips]:
+        cid = clip.get("id") or "c01"
+        rendered_file = clip.get("file")
+        if not rendered_file:
+            continue
+
+        p = find_file_in_work(rendered_file)
+        if not p or not p.is_file():
+            p = d / "clips" / rendered_file
+            if not p.is_file():
+                continue
+
+        clip_posted = autopost_log.get(cid, {})
+        title = clip.get("hook") or clip.get("title") or f"Viral Highlight {cid}"
+        caption = clip.get("caption") or ""
+        tags = clip.get("hashtags") or ["Shorts", "Gaming", "Viral"]
+        if isinstance(tags, str):
+            tags = [t.strip().lstrip("#") for t in tags.split() if t.strip()]
+        else:
+            tags = [str(t).strip().lstrip("#") for t in tags]
+        if "Shorts" not in tags:
+            tags.append("Shorts")
+
+        # YouTube Shorts Auto-Post
+        if post_yt and yt_acc and not clip_posted.get("youtube"):
+            try:
+                print(f"[AutoPost] 🚀 Uploading clip {cid} to YouTube Shorts: '{title}'...")
+                desc = f"{caption}\n\n{' '.join('#' + t for t in tags)}\n\n#Shorts\n\nClipped autonomously with PeakCut ClipFarm"
+                privacy = st.get("youtube_privacy", "public")
+                vid_id, shorts_url = accounts.youtube_upload(yt_acc, p, title=title[:100], description=desc[:4900], tags=tags[:15], privacy=privacy)
+                clip["youtube_url"] = shorts_url
+                clip_posted["youtube"] = {"url": shorts_url, "id": vid_id, "time": time.time()}
+                record_post_history("youtube", rendered_file, shorts_url, vid_id, title)
+                print(f"[AutoPost] ✅ Published YouTube Short: {shorts_url}")
+                posted_count += 1
+            except Exception as e:
+                print(f"[AutoPost] ❌ YouTube auto-post failed for clip {cid}: {e}")
+                record_post_history("youtube", rendered_file, "", "", title, error=str(e))
+
+        # Instagram Reels Auto-Post
+        if post_ig and ig_acc and not clip_posted.get("instagram"):
+            try:
+                print(f"[AutoPost] 🚀 Uploading clip {cid} to Instagram Reels: '{title}'...")
+                full_caption = f"{title}\n\n{caption}\n\n{' '.join('#' + t for t in tags)}"
+                media_id, reel_url = accounts.instagram_upload(ig_acc, p, caption=full_caption[:2200])
+                clip["instagram_url"] = reel_url
+                clip_posted["instagram"] = {"url": reel_url, "id": media_id, "time": time.time()}
+                record_post_history("instagram", rendered_file, reel_url, media_id, title)
+                print(f"[AutoPost] ✅ Published Instagram Reel: {reel_url or 'Reel Published'}")
+                posted_count += 1
+            except Exception as e:
+                print(f"[AutoPost] ❌ Instagram auto-post failed for clip {cid}: {e}")
+                record_post_history("instagram", rendered_file, "", "", title, error=str(e))
+
+        autopost_log[cid] = clip_posted
+        write_json(autopost_log_f, autopost_log)
+        write_json(final_f, final_data)
+
+        if posted_count > 0:
+            time.sleep(delay_s)
+
+    print(f"[AutoPost] 🎯 Autonomous auto-posting finished for stream '{stream_key}'.\n")
+
+
 app = FastAPI(title="ClipFarm Studio", version="1.1.0")
 
 app.add_middleware(
@@ -54,6 +237,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def ensure_user_context(request: Request, call_next):
+    ctx.set_uid("u_local")
+    return await call_next(request)
 
 ACTIVE_JOBS = {}
 
@@ -679,6 +868,8 @@ def get_stream(key: str):
                 "facecam_url": f"/media/thumb/{facecam.name}" if facecam.exists() else None,
                 "meta": meta,
                 "post_text": txt,
+                "youtube_url": f_clip.get("youtube_url") if f_clip else meta.get("youtube_url"),
+                "instagram_url": f_clip.get("instagram_url") if f_clip else meta.get("instagram_url"),
                 "saved": meta.get("saved", False),
                 "size_mb": round(f.stat().st_size / (1024 * 1024), 2)
             })
@@ -801,6 +992,8 @@ def list_all_clips():
             "download_url": f"/api/download/{f.name}",
             "thumb_url": f"/media/thumb/{thumb.name}" if thumb.exists() else None,
             "facecam_url": f"/media/thumb/{facecam.name}" if facecam.exists() else None,
+            "youtube_url": f_clip.get("youtube_url") if f_clip else meta.get("youtube_url"),
+            "instagram_url": f_clip.get("instagram_url") if f_clip else meta.get("instagram_url"),
             "size_mb": round(f.stat().st_size / (1024 * 1024), 2),
             "saved": meta.get("saved", False),
             "created_at": f.stat().st_mtime
@@ -2522,6 +2715,8 @@ def _run_render_stream(key: str, only: Optional[str] = None):
         write_json(d / "progress.json", job_data)
         if not settings().get("keep_audio", False):
             cleanup_stream_audio(key)
+        # Autonomous Zero-Supervision Auto-Pilot trigger:
+        threading.Thread(target=trigger_autopost_for_stream, args=(key,), daemon=True).start()
     except BaseException as e:
         print(f"[_run_render_stream] Error: {e}", flush=True)
         ACTIVE_JOBS[key] = {"action": "render", "error": str(e), "failed": True, "done": True}
@@ -3040,34 +3235,237 @@ def api_check_creator(cid: str):
     return {"ok": True, "creator": c}
 
 
-# --- Social Posting Integration (YouTube & Instagram) ---
+# --- Social Posting Integration (YouTube Shorts & Instagram Reels) ---
 @app.get("/api/post/status")
 def get_posting_status():
-    from studio import accounts, config, ctx
-    ctx.as_user("u_local")
-    has_yt = bool(config.env("GOOGLE_CLIENT_ID") or (config.ROOT / "secrets" / "google_client.json").exists())
-    has_ig = bool(config.env("PEAKCUT_IG_APP_ID"))
+    ctx.set_uid("u_local")
+    accs = accounts.list_accounts()
+    has_yt = any(a.get("platform") == "youtube" for a in accs)
+    has_ig = any(a.get("platform") == "instagram" for a in accs)
+    apps = accounts.apps_public()
+    autopost = get_autopost_settings()
     return {
-        "youtube": {"configured": has_yt, "connected": False},
-        "instagram": {"configured": has_ig, "connected": False},
-        "peakcut_url": "http://127.0.0.1:8765/app#settings"
+        "youtube": {"configured": apps.get("youtube", {}).get("ready", False), "connected": has_yt},
+        "instagram": {"configured": apps.get("instagram", {}).get("ready", False), "connected": has_ig},
+        "accounts": accs,
+        "apps": apps,
+        "autopost": autopost,
+        "redirect_base": config.PUBLIC_URL
     }
+
+
+@app.get("/api/accounts")
+def get_accounts_api():
+    ctx.set_uid("u_local")
+    return {
+        "ok": True,
+        "accounts": accounts.list_accounts(),
+        "apps": accounts.apps_public(),
+        "redirect_base": config.PUBLIC_URL
+    }
+
+
+@app.post("/api/accounts/save-app")
+def api_save_app(payload: dict):
+    ctx.set_uid("u_local")
+    platform = payload.get("platform")
+    client_id = (payload.get("client_id") or "").strip()
+    client_secret = (payload.get("client_secret") or "").strip()
+    if not platform:
+        raise HTTPException(status_code=400, detail="Platform is required")
+    try:
+        apps = accounts.save_app(platform, client_id, client_secret)
+        return {"ok": True, "apps": apps}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/accounts/upload-secrets")
+async def api_upload_secrets(file: UploadFile = File(...)):
+    ctx.set_uid("u_local")
+    try:
+        content = await file.read()
+        data = json.loads(content.decode("utf-8"))
+        app_data = data.get("web") or data.get("installed")
+        if not app_data:
+            raise ValueError("Invalid client_secrets.json: missing 'web' or 'installed' object")
+        client_id = app_data.get("client_id", "").strip()
+        client_secret = app_data.get("client_secret", "").strip()
+        if not client_id or not client_secret:
+            raise ValueError("client_secrets.json must contain both client_id and client_secret")
+        apps = accounts.save_app("youtube", client_id, client_secret)
+        return {"ok": True, "client_id": client_id, "apps": apps}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to process client_secrets.json: {e}")
+
+
+@app.post("/api/accounts/direct-token")
+def api_direct_token(payload: dict):
+    ctx.set_uid("u_local")
+    platform = payload.get("platform")
+    token = (payload.get("token") or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Token cannot be empty")
+    if platform == "instagram":
+        try:
+            acc = accounts.instagram_add(token)
+            return {"ok": True, "account": acc}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Instagram connection failed: {e}")
+    else:
+        raise HTTPException(status_code=400, detail=f"Direct token connection not supported for {platform}")
+
+
+@app.delete("/api/accounts/{aid}")
+def api_remove_account(aid: str):
+    ctx.set_uid("u_local")
+    accounts.remove(aid)
+    return {"ok": True, "removed": aid}
+
+
+@app.get("/oauth/{platform}/start")
+def connect_start(platform: str):
+    ctx.set_uid("u_local")
+    if platform not in accounts.PLATFORM_NAMES:
+        raise HTTPException(status_code=404, detail="Unknown platform")
+    try:
+        url = accounts.connect_url(platform)
+        return RedirectResponse(url, status_code=303)
+    except Exception as e:
+        return RedirectResponse(f"/?connect_error={quote(str(e))}#social", status_code=303)
+
+
+@app.get("/oauth/{platform}/callback")
+def connect_callback(platform: str, code: str = "", state: str = "", error: str = "", error_description: str = "", error_reason: str = ""):
+    ctx.set_uid("u_local")
+    if platform not in accounts.PLATFORM_NAMES:
+        raise HTTPException(status_code=404, detail="Unknown platform")
+    name = accounts.PLATFORM_NAMES[platform]
+    if error or not code:
+        why = "cancelled by user" if error in ("access_denied",) or error_reason == "user_denied" else (error_description or error or "no authorization code returned")
+        return RedirectResponse(f"/?connect_error={quote(f'{name} was not connected: {why[:160]}')}#social", status_code=303)
+    try:
+        acc = accounts.connect_finish(platform, code, state)
+        return RedirectResponse(f"/?connected={platform}&acc_name={quote(acc.get('name', ''))}#social", status_code=303)
+    except Exception as e:
+        return RedirectResponse(f"/?connect_error={quote(f'{name} was not connected: {str(e)[:160]}')}#social", status_code=303)
+
+
+@app.get("/pub/{token}.mp4")
+def public_clip_fetch(token: str):
+    ctx.set_uid("u_local")
+    got = accounts.read_clip_link(token)
+    if not got:
+        raise HTTPException(status_code=404, detail="Clip link expired or invalid")
+    uid, job_id, name = got
+    p = find_file_in_work(name)
+    if not p or not p.is_file():
+        raise HTTPException(status_code=404, detail="Clip file not found")
+    return FileResponse(p, media_type="video/mp4", headers={"Cache-Control": "private, no-store"})
+
+
+@app.get("/api/autopost/settings")
+def api_get_autopost():
+    return {"ok": True, "settings": get_autopost_settings()}
+
+
+@app.post("/api/autopost/settings")
+def api_save_autopost(payload: dict):
+    res = save_autopost_settings(payload)
+    return {"ok": True, "settings": res}
 
 
 @app.post("/api/post/clip")
 def post_clip_action(payload: dict):
+    ctx.set_uid("u_local")
     platform = payload.get("platform")
     filename = payload.get("filename")
-    title = payload.get("title", "")
-    caption = payload.get("caption", "")
+    if not platform or not filename:
+        raise HTTPException(status_code=400, detail="Platform and filename are required.")
+
     p = find_file_in_work(filename)
-    if not p:
-        raise HTTPException(status_code=404, detail="Clip not found")
-    return {
-        "ok": True,
-        "platform": platform,
-        "message": f"Prepared post payload for {platform}. Connect your channel in Settings > Connected Accounts or use the copy button to post in 1 click."
-    }
+    if not p or not p.is_file():
+        raise HTTPException(status_code=404, detail=f"Clip file '{filename}' not found on disk.")
+
+    all_accs = [a for a in accounts._all() if a.get("platform") == platform]
+    if not all_accs:
+        plat_label = accounts.PLATFORM_NAMES.get(platform, platform)
+        raise HTTPException(
+            status_code=400,
+            detail=f"No connected {plat_label} account found. Please connect your account in the Social tab first."
+        )
+
+    acc = all_accs[0]
+    meta = get_clip_metadata_for_file(filename)
+
+    title = payload.get("title", "").strip() or meta.get("hook") or meta.get("title") or filename
+    caption = payload.get("caption", "").strip() or meta.get("caption") or ""
+    tags = meta.get("hashtags") or ["Shorts", "Gaming", "Viral"]
+    if isinstance(tags, str):
+        tags = [t.strip().lstrip("#") for t in tags.split() if t.strip()]
+    else:
+        tags = [str(t).strip().lstrip("#") for t in tags]
+    if "Shorts" not in tags:
+        tags.append("Shorts")
+
+    if platform == "youtube":
+        desc = f"{caption}\n\n{' '.join('#' + t for t in tags)}\n\n#Shorts\n\nClipped autonomously with PeakCut ClipFarm"
+        privacy = payload.get("privacy", "public")
+        try:
+            vid_id, shorts_url = accounts.youtube_upload(acc, p, title=title[:100], description=desc[:4900], tags=tags[:15], privacy=privacy)
+            record_post_history("youtube", filename, shorts_url, vid_id, title)
+            # update final.json if available
+            for s_dir in (WORK_DIR / "streams").glob("*"):
+                final_f = s_dir / "final.json"
+                if final_f.exists():
+                    f_data = read_json(final_f, {})
+                    updated = False
+                    for c in f_data.get("clips", []):
+                        if c.get("file") == filename or match_clip_id(c.get("id"), filename.split("_")[0]):
+                            c["youtube_url"] = shorts_url
+                            updated = True
+                    if updated:
+                        write_json(final_f, f_data)
+            return {
+                "ok": True,
+                "platform": "youtube",
+                "url": shorts_url,
+                "id": vid_id,
+                "message": f"Successfully posted to YouTube Shorts: {shorts_url}"
+            }
+        except Exception as e:
+            record_post_history("youtube", filename, "", "", title, error=str(e))
+            raise HTTPException(status_code=500, detail=f"YouTube upload failed: {str(e)}")
+
+    elif platform == "instagram":
+        full_caption = f"{title}\n\n{caption}\n\n{' '.join('#' + t for t in tags)}"
+        try:
+            media_id, reel_url = accounts.instagram_upload(acc, p, caption=full_caption[:2200])
+            record_post_history("instagram", filename, reel_url, media_id, title)
+            # update final.json if available
+            for s_dir in (WORK_DIR / "streams").glob("*"):
+                final_f = s_dir / "final.json"
+                if final_f.exists():
+                    f_data = read_json(final_f, {})
+                    updated = False
+                    for c in f_data.get("clips", []):
+                        if c.get("file") == filename or match_clip_id(c.get("id"), filename.split("_")[0]):
+                            c["instagram_url"] = reel_url
+                            updated = True
+                    if updated:
+                        write_json(final_f, f_data)
+            return {
+                "ok": True,
+                "platform": "instagram",
+                "url": reel_url,
+                "id": media_id,
+                "message": f"Successfully posted to Instagram Reels: {reel_url or 'Reel published'}"
+            }
+        except Exception as e:
+            record_post_history("instagram", filename, "", "", title, error=str(e))
+            raise HTTPException(status_code=500, detail=f"Instagram upload failed: {str(e)}")
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported platform: {platform}")
 
 
 @app.get("/", response_class=HTMLResponse)
