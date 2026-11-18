@@ -1985,11 +1985,11 @@ video::backdrop {
         </div>
 
         <!-- STREAMER & QUALITY FILTER BAR -->
-        <div class="streamer-filter-bar" style="display:flex;gap:8px;overflow-x:auto;padding:8px 0;margin:4px 0 10px 0;-webkit-overflow-scrolling:touch;">
-          <button class="filter-pill active" id="filterAll" onclick="setClipFilter('all')">🔥 All Clips (<span id="countAll">--</span>)</button>
-          <button class="filter-pill" id="filterSpeed" onclick="setClipFilter('IShowSpeed')" style="background:#FEE2E2;color:#991B1B;border-color:#FCA5A5;">🔴 IShowSpeed (<span id="countSpeed">--</span>)</button>
-          <button class="filter-pill" id="filterXqc" onclick="setClipFilter('xQc')" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD;">🟣 xQc (<span id="countXqc">--</span>)</button>
-          <button class="filter-pill" id="filterCurated" onclick="setClipFilter('curated')" style="background:#FEF3C7;color:#92400E;border-color:#FCD34D;">⭐ Top Curated Moments</button>
+        <div class="streamer-filter-bar" style="display:flex;gap:10px;overflow-x:auto;padding:8px 0;margin:4px 0 12px 0;-webkit-overflow-scrolling:touch;">
+          <button class="filter-pill active" id="filterAll" onclick="setClipFilter('all')" style="font-weight:700;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🔥 All Clips (<span id="countAll">--</span>)</button>
+          <button class="filter-pill" id="filterSpeed" onclick="setClipFilter('IShowSpeed')" style="background:#FEE2E2;color:#991B1B;border-color:#F87171;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🔴 IShowSpeed (<span id="countSpeed">--</span>)</button>
+          <button class="filter-pill" id="filterXqc" onclick="setClipFilter('xQc')" style="background:#EDE9FE;color:#5B21B6;border-color:#A78BFA;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🟣 xQc (<span id="countXqc">--</span>)</button>
+          <button class="filter-pill" id="filterCurated" onclick="setClipFilter('curated')" style="background:#FEF3C7;color:#92400E;border-color:#FBBF24;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">⭐ Top Curated Moments</button>
         </div>
 
         <div class="clips-grid" id="allClipsGrid">
@@ -3369,6 +3369,21 @@ function setClipFilter(filter) {
   renderClipsGrid();
 }
 
+function playInlineVideo(boxId, videoUrl, thumbUrl) {
+  const box = document.getElementById('box_' + boxId);
+  if (!box) return;
+  if (box.querySelector('video')) return;
+  // Pause any currently playing inline videos across the page
+  document.querySelectorAll('.clip-video-box video').forEach(v => {
+    try { v.pause(); } catch(e){}
+  });
+  box.innerHTML = `<video src="${videoUrl}" poster="${thumbUrl}" controls autoplay playsinline webkit-playsinline style="width:100%;height:100%;object-fit:contain;background:#000;display:block;"></video>`;
+  const vid = box.querySelector('video');
+  if (vid) {
+    vid.play().catch(e => console.log('Autoplay deferred, user tap needed:', e));
+  }
+}
+
 function renderClipsGrid() {
   const grid = document.getElementById('allClipsGrid');
   if (!grid) return;
@@ -3383,6 +3398,19 @@ function renderClipsGrid() {
     filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc')));
   } else if (currentClipFilter === 'curated') {
     filtered = allClipsData.filter(c => c.curated || (c.score && c.score >= 90));
+  } else {
+    // For 'all' view: interleave Speed and xQc so Speed clips appear immediately from the top on mobile!
+    const speedClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('ishowspeed')));
+    const xqcClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc')));
+    const otherClips = allClipsData.filter(c => !speedClips.includes(c) && !xqcClips.includes(c));
+    const combined = [];
+    const maxLen = Math.max(speedClips.length, xqcClips.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i < speedClips.length) combined.push(speedClips[i]);
+      if (i < xqcClips.length) combined.push(xqcClips[i]);
+    }
+    combined.push(...otherClips);
+    filtered = combined;
   }
 
   if (!filtered.length) {
@@ -3390,25 +3418,50 @@ function renderClipsGrid() {
     return;
   }
 
-  grid.innerHTML = filtered.map(c => `
-      <div class="clip-card">
-        <div class="clip-video-box">
-          <video src="${c.video_url}" poster="${c.thumb_url || ''}" controls playsinline preload="metadata"></video>
+  grid.innerHTML = filtered.map(c => {
+    const boxId = c.filename.replace(/[^a-zA-Z0-9]/g, '_');
+    const isSpeed = (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('speed'));
+    const streamerTag = isSpeed ? '🔴 IShowSpeed' : '🟣 xQc';
+    const tagBorderColor = isSpeed ? '#EF4444' : '#8B5CF6';
+    return `
+      <div class="clip-card" style="box-shadow:0 3px 12px rgba(0,0,0,0.06);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;">
+        <!-- High-Performance Tap-To-Play Container (Zero Black Screen on Mobile Safari) -->
+        <div class="clip-video-box" id="box_${boxId}" onclick="playInlineVideo('${boxId}', '${c.video_url}', '${c.thumb_url || ''}')" style="cursor:pointer;position:relative;background:#000;aspect-ratio:9/16;max-height:460px;width:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+          ${c.thumb_url ? `
+            <img src="${c.thumb_url}" alt="Clip Thumbnail" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">
+          ` : `
+            <div style="width:100%;height:100%;background:#18181b;display:flex;align-items:center;justify-content:center;color:#9E8F85;font-size:12px;">🎬 Tap to Play Video</div>
+          `}
+          <!-- Glowing Mobile Play Button Overlay -->
+          <div class="play-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);transition:background 0.2s;">
+            <div style="width:58px;height:58px;border-radius:50%;background:rgba(255,139,51,0.95);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 18px rgba(0,0,0,0.45);cursor:pointer;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="#14110F" style="margin-left:3px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </div>
+          </div>
+          <!-- Streamer Tag -->
+          <div style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.8);color:#fff;font-size:11px;font-weight:800;padding:4px 8px;border-radius:6px;border-left:3px solid ${tagBorderColor};backdrop-filter:blur(4px);letter-spacing:0.2px;">
+            ${streamerTag}
+          </div>
+          <!-- Duration & HD Badge -->
+          <div style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.8);color:#FFB74D;font-size:11px;font-weight:800;padding:3px 7px;border-radius:4px;backdrop-filter:blur(4px);">
+            ${c.duration ? c.duration + 's' : '35s'} · 1080p
+          </div>
         </div>
+
         <div class="clip-info" style="padding:14px;display:flex;flex-direction:column;gap:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-            <span class="hook-badge" style="font-weight:700;font-size:13px;letter-spacing:-0.2px;">${escapeHtml(c.hook || c.title)}</span>
+            <span class="hook-badge" style="font-weight:800;font-size:13.5px;letter-spacing:-0.2px;color:var(--text);">${escapeHtml(c.hook || c.title)}</span>
             <div style="display:flex;gap:4px;flex-shrink:0;">
-              ${(c.curated || (c.score && c.score >= 90)) ? '<span class="badge" style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:800;">⭐ Top Pick</span>' : ''}
+              ${(c.curated || (c.score && c.score >= 90)) ? '<span class="badge" style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:800;border:1px solid #FCD34D;">⭐ Top Pick</span>' : ''}
               <span class="badge ${c.saved ? 'badge-ready' : 'badge-process'}" style="font-size:10px;">${c.saved ? '💾 Saved' : '⏳ Temp'}</span>
             </div>
           </div>
-          <div style="font-size:12px;color:var(--dim);line-height:1.4;">${escapeHtml(c.caption || '')}</div>
+          <div style="font-size:12px;color:var(--dim);line-height:1.45;">${escapeHtml(c.caption || '')}</div>
           <div style="font-size:11px;color:#888;">${c.streamer} · ${c.size_mb} MB · 1080x1920 MP4</div>
 
           <!-- PROMINENT 1-TAP DOWNLOAD BUTTON -->
-          <a href="/api/download/${c.filename}" download="${c.filename}" class="btn-mobile-download">
-            📥 Download to Phone (${c.size_mb} MB)
+          <a href="/api/download/${c.filename}" download="${c.filename}" class="btn-mobile-download" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;background:linear-gradient(135deg, #FF8B33 0%, #EA580C 100%);color:#fff;font-size:15px;font-weight:800;border-radius:10px;text-decoration:none;box-shadow:0 3px 10px rgba(255,139,51,0.3);margin-top:2px;">
+            📥 Download MP4 to Phone (${c.size_mb} MB)
           </a>
 
           <!-- QUICK SOCIAL POST BUTTONS -->
@@ -3427,7 +3480,7 @@ function renderClipsGrid() {
 
           <!-- UTILITIES ROW: COPY CAPTION & SAVE/DELETE -->
           <div style="display:flex;gap:6px;">
-            <button class="btn btn-sm btn-outline" style="flex:1;padding:8px;font-weight:600;" onclick="copyCaption('${escapeJs(c.post_text || c.caption)}')">📋 Copy Caption</button>
+            <button class="btn btn-sm btn-outline" style="flex:1;padding:8px;font-weight:600;" onclick="copyCaption('${escapeJs((c.hook ? c.hook + '\n\n' : '') + (c.caption || '') + (c.hashtags ? '\n\n' + c.hashtags.map(t => '#' + t.replace(/^#/,'')).join(' ') : ''))}')">📋 Copy Caption</button>
             <button class="btn btn-sm" style="${c.saved ? 'background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;' : 'background:#FFF8E1;color:#F57F17;border:1px solid #FFE082;'}padding:8px;font-weight:600;" onclick="toggleSaveClip('${c.filename}')">
               ${c.saved ? '⭐ Saved' : '💾 Save'}
             </button>
@@ -3491,7 +3544,8 @@ function renderClipsGrid() {
           <button class="btn btn-sm" style="background:#000;color:#fff;width:100%;margin-top:4px;" onclick="openClipEditor('${c.stream_key}', '${c.cid || c.filename.split('_')[0]}')">✂️ Open in Live Video Editor</button>
         </div>
       </div>
-    `).join('');
+    `;
+  }).join('');
 }
 
 async function loadAllClips() {
@@ -3656,8 +3710,29 @@ async function quickSaveCardPreset(streamKey, cid) {
 
 function copyCaption(text) {
   if (!text) return alert('No caption available to copy.');
-  navigator.clipboard.writeText(text);
-  alert('Caption & hashtags copied to clipboard!');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('📋 Copied caption & viral hashtags to clipboard! Ready to paste into YouTube Shorts or TikTok.');
+    }).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    alert('📋 Copied caption & viral hashtags to clipboard!');
+  } catch(e) {
+    prompt('Copy the caption below:', text);
+  }
+  document.body.removeChild(ta);
 }
 
 async function postToSocial(platform, filename, btnEl) {

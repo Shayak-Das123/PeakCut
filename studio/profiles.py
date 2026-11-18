@@ -206,7 +206,8 @@ def live_now(platform: str, url: str) -> dict:
     url = url.rstrip("/")
     off = {"live": False, "viewers": None, "title": "", "started": None, "embed": ""}
     path = urlparse(url).path.strip("/").split("/")
-    if platform == "Kick":
+    plat = (platform or "").strip().lower()
+    if plat == "kick":
         slug = path[0]
         _, raw = _get(f"https://kick.com/api/v2/channels/{slug}", "application/json")
         ls = json.loads(raw).get("livestream")
@@ -219,7 +220,7 @@ def live_now(platform: str, url: str) -> dict:
         except Exception:
             pass
         return {"live": True, "viewers": ls.get("viewer_count"), "title": ls.get("session_title") or "", "started": started, "embed": slug}
-    if platform == "YouTube":
+    if plat in ("youtube", "yt"):
         base = re.sub(r"/(live|videos|streams|featured)$", "", url)
         _, raw = _get(base + "/live")
         html = raw.decode("utf-8", "replace")
