@@ -501,6 +501,13 @@ class LivePipelineSession:
 
                 self._save_final_json()
 
+                # Autonomous Zero-Supervision Auto-Pilot posting hook for rolling live clips
+                try:
+                    from studio import clipfarm_server
+                    threading.Thread(target=clipfarm_server.trigger_autopost_for_stream, args=(self.key,), daemon=True).start()
+                except Exception as ex:
+                    print(f"[LiveRender] Warning triggering autopost: {ex}", flush=True)
+
             except Exception as e:
                 clip["status"] = "error"
                 clip["error"] = str(e)
