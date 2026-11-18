@@ -725,6 +725,17 @@ def list_all_clips():
         
         stream_name = stream_key if stream_key != "vod" else (meta.get("stream") or "")
         effective_stream_key = stream_name or stream_key
+        clip_uid = f"{effective_stream_key}:{cid_val}"
+        if clip_uid in seen:
+            # Obsolete older version of this clip! Automatically purge from disk to free storage
+            if stream_key == "vod":
+                try:
+                    for old_f in f.parent.glob(f"{f.stem}.*"):
+                        old_f.unlink(missing_ok=True)
+                except Exception:
+                    pass
+            return
+        seen.add(clip_uid)
         if stream_name:
             final_p = WORK_DIR / "streams" / stream_name / "final.json"
             stream_final = read_json(final_p, {}) if final_p.exists() else {}
@@ -1562,13 +1573,25 @@ def adjust_clip_bounds(key: str, cid: str, payload: dict):
             try: sec_file.unlink()
             except Exception: pass
 
-    # Clean previous rendered clip file so render_stream replaces it
+    # Clean previous rendered clip file across stream clips and all dated folders so old version is deleted!
     target_clips = d / "clips"
     target_clips.mkdir(parents=True, exist_ok=True)
     for old_f in list(target_clips.glob("*")):
         if match_clip_id(old_f.stem.split("_")[0], actual_cid) or old_f.stem.startswith(f"{actual_cid}_"):
             try: old_f.unlink()
             except Exception: pass
+
+    dated_root = WORK_DIR / "clips"
+    if dated_root.exists():
+        for folder in dated_root.glob("*"):
+            if folder.is_dir() and folder.name != "saved_clips":
+                for old_df in list(folder.glob("*")):
+                    if match_clip_id(old_df.stem.split("_")[0], actual_cid) or old_df.stem.startswith(f"{actual_cid}_"):
+                        m_f = old_df.with_suffix(".json")
+                        m = read_json(m_f, {}) if m_f.exists() else {}
+                        if not m or m.get("stream") == actual_key or actual_key in old_df.name:
+                            try: old_df.unlink()
+                            except Exception: pass
 
     render_d = d / "render" / actual_cid
     render_d.mkdir(parents=True, exist_ok=True)
@@ -1585,12 +1608,16 @@ def adjust_clip_bounds(key: str, cid: str, payload: dict):
     if made:
         rendered_file = made[0].get("file", "")
         stem = Path(rendered_file).stem
-        dated_root = WORK_DIR / "clips"
         if dated_root.exists():
             for folder in dated_root.glob("*"):
                 if folder.is_dir():
                     for item in folder.glob(f"{stem}*"):
                         shutil.copy2(item, target_clips / item.name)
+                    if folder.name != "saved_clips":
+                        for old_df in list(folder.glob("*")):
+                            if (match_clip_id(old_df.stem.split("_")[0], actual_cid) or old_df.stem.startswith(f"{actual_cid}_")) and not old_df.name.startswith(stem):
+                                try: old_df.unlink()
+                                except Exception: pass
         clip["file"] = rendered_file
         new_words = made[0].get("words_list") or []
         write_json(final_file, final_data)
@@ -1948,6 +1975,11 @@ def rerender_clip_custom(key: str, cid: str, payload: dict):
                 if folder.is_dir():
                     for item in folder.glob(f"{stem}*"):
                         shutil.copy2(item, target_clips / item.name)
+                    if folder.name != "saved_clips":
+                        for old_df in list(folder.glob("*")):
+                            if (match_clip_id(old_df.stem.split("_")[0], actual_cid) or old_df.stem.startswith(f"{actual_cid}_")) and not old_df.name.startswith(stem):
+                                try: old_df.unlink()
+                                except Exception: pass
 
         clip["file"] = rendered_name
         write_json(final_file, final_data)

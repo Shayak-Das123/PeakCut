@@ -606,11 +606,23 @@ def render_stream(key: str, only: str | None = None, layout: str | None = None, 
             clip_file = m.get("file")
             if clip_file:
                 c_stem = Path(clip_file).stem
-                # Clean up any obsolete previous clip files for this cid in target_clips
+                # Clean up any obsolete previous clip files for this cid in target_clips AND across all dated folders!
                 for old_f in list(target_clips.glob("*")):
                     if (match_clip_id(old_f.stem.split("_")[0], cid) or old_f.stem.startswith(f"{cid}_")) and not old_f.name.startswith(c_stem):
                         try: old_f.unlink()
                         except Exception: pass
+
+                dated_root = WORK / "clips"
+                if dated_root.exists():
+                    for folder in dated_root.glob("*"):
+                        if folder.is_dir() and folder.name != "saved_clips":
+                            for old_df in list(folder.glob("*")):
+                                if (match_clip_id(old_df.stem.split("_")[0], cid) or old_df.stem.startswith(f"{cid}_")) and not old_df.name.startswith(c_stem):
+                                    m_json = old_df.with_suffix(".json")
+                                    m_data = read_json(m_json, {}) if m_json.exists() else {}
+                                    if not m_data or m_data.get("stream") == key or (info.get("streamer") and info.get("streamer").lower() in old_df.name.lower()):
+                                        try: old_df.unlink()
+                                        except Exception: pass
                 for item in out_dir.glob(f"{c_stem}*"):
                     shutil.copy2(item, target_clips / item.name)
 
