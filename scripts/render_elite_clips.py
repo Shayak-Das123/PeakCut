@@ -33,25 +33,20 @@ def load_stream_segments(stream_folder: Path) -> list[tuple[Path, float, float]]
     if not buf.exists():
         return []
     segments = []
-    seg_clock = 0.0
-    for i in range(1, 20):
-        csv_p = buf / f"p{i:02d}.csv"
-        if not csv_p.exists():
-            continue
+    csv_files = sorted(buf.glob("*.csv"))
+    for csv_p in csv_files:
         for row in csv_p.read_text(encoding="utf-8", errors="ignore").splitlines():
             parts = [p.strip() for p in row.split(",") if p.strip()]
             if len(parts) >= 3:
                 name = parts[0]
                 try:
                     a, b = float(parts[1]), float(parts[2])
-                    dur = max(0.0, b - a)
                     ts_path = buf / name
                     if ts_path.exists():
-                        segments.append((ts_path, seg_clock, seg_clock + dur))
-                    seg_clock += dur
+                        segments.append((ts_path, a, b))
                 except ValueError:
                     pass
-    return segments
+    return sorted(segments, key=lambda x: x[1])
 
 def render_curated_reel(
     stream_key: str,
@@ -179,6 +174,9 @@ def render_curated_reel(
     comp_txt.write_text("\n".join(txt_lines), encoding="utf-8")
 
     # Clean intermediate section
-    sec_file.unlink(missing_ok=True)
+    try:
+        sec_file.unlink(missing_ok=True)
+    except Exception:
+        pass
     print(f"[{cid}] SUCCESS -> {out_name} (Hook: '{hook}')")
     return meta
