@@ -1991,6 +1991,8 @@ video::backdrop {
           <button class="filter-pill" id="filterKai" onclick="setClipFilter('KaiCenat')" style="background:#FEF08A;color:#854D0E;border-color:#EAB308;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🟡 Kai Cenat (<span id="countKai">--</span>)</button>
           <button class="filter-pill" id="filterSpeed" onclick="setClipFilter('IShowSpeed')" style="background:#FEE2E2;color:#991B1B;border-color:#F87171;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🔴 IShowSpeed (<span id="countSpeed">--</span>)</button>
           <button class="filter-pill" id="filterCarry" onclick="setClipFilter('CarryMinati')" style="background:#DCFCE7;color:#166534;border-color:#22C55E;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🟢 CarryMinati (<span id="countCarry">--</span>)</button>
+          <button class="filter-pill" id="filterClix" onclick="setClipFilter('Clix')" style="background:#DBEAFE;color:#1E40AF;border-color:#3B82F6;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🔵 Clix (<span id="countClix">--</span>)</button>
+          <button class="filter-pill" id="filterJynxzi" onclick="setClipFilter('Jynxzi')" style="background:#F3E8FF;color:#6B21A8;border-color:#A855F7;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🟣 Jynxzi (<span id="countJynxzi">--</span>)</button>
           <button class="filter-pill" id="filterXqc" onclick="setClipFilter('xQc')" style="background:#EDE9FE;color:#5B21B6;border-color:#A78BFA;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">🟣 xQc (<span id="countXqc">--</span>)</button>
           <button class="filter-pill" id="filterCurated" onclick="setClipFilter('curated')" style="background:#FEF3C7;color:#92400E;border-color:#FBBF24;font-weight:800;padding:8px 14px;border-radius:20px;font-size:13px;white-space:nowrap;">⭐ Top Curated Moments</button>
         </div>
@@ -3367,6 +3369,8 @@ function setClipFilter(filter) {
     'IShowSpeed': 'filterSpeed',
     'KaiCenat': 'filterKai',
     'CarryMinati': 'filterCarry',
+    'Clix': 'filterClix',
+    'Jynxzi': 'filterJynxzi',
     'xQc': 'filterXqc',
     'curated': 'filterCurated'
   };
@@ -3406,25 +3410,33 @@ function renderClipsGrid() {
     filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('kai')) || (c.filename && c.filename.toLowerCase().includes('kai')));
   } else if (currentClipFilter === 'CarryMinati') {
     filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('carry')) || (c.filename && c.filename.toLowerCase().includes('carry')));
+  } else if (currentClipFilter === 'Clix') {
+    filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('clix')) || (c.filename && c.filename.toLowerCase().includes('clix')));
+  } else if (currentClipFilter === 'Jynxzi') {
+    filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('jynxzi')) || (c.filename && c.filename.toLowerCase().includes('jynxzi')));
   } else if (currentClipFilter === 'xQc') {
     filtered = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc')));
   } else if (currentClipFilter === 'curated') {
     filtered = allClipsData.filter(c => c.curated || (c.score && c.score >= 90));
   } else {
-    // For 'all' view: interleave CaseOh, Kai Cenat, Speed, CarryMinati and xQc so all streamers appear immediately from the top on mobile!
+    // For 'all' view: interleave all streamers so everyone appears immediately from the top on mobile!
     const caseohClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('caseoh')) || (c.filename && c.filename.toLowerCase().includes('caseoh')));
     const speedClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('ishowspeed')));
     const kaiClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('kai')) || (c.filename && c.filename.toLowerCase().includes('kai')));
     const carryClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('carry')) || (c.filename && c.filename.toLowerCase().includes('carry')));
+    const clixClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('clix')) || (c.filename && c.filename.toLowerCase().includes('clix')));
+    const jynxziClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('jynxzi')) || (c.filename && c.filename.toLowerCase().includes('jynxzi')));
     const xqcClips = allClipsData.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc')));
-    const otherClips = allClipsData.filter(c => !caseohClips.includes(c) && !speedClips.includes(c) && !kaiClips.includes(c) && !carryClips.includes(c) && !xqcClips.includes(c));
+    const otherClips = allClipsData.filter(c => !caseohClips.includes(c) && !speedClips.includes(c) && !kaiClips.includes(c) && !carryClips.includes(c) && !clixClips.includes(c) && !jynxziClips.includes(c) && !xqcClips.includes(c));
     const combined = [];
-    const maxLen = Math.max(caseohClips.length, speedClips.length, kaiClips.length, carryClips.length, xqcClips.length);
+    const maxLen = Math.max(caseohClips.length, speedClips.length, kaiClips.length, carryClips.length, clixClips.length, jynxziClips.length, xqcClips.length);
     for (let i = 0; i < maxLen; i++) {
       if (i < caseohClips.length) combined.push(caseohClips[i]);
       if (i < kaiClips.length) combined.push(kaiClips[i]);
       if (i < speedClips.length) combined.push(speedClips[i]);
       if (i < carryClips.length) combined.push(carryClips[i]);
+      if (i < clixClips.length) combined.push(clixClips[i]);
+      if (i < jynxziClips.length) combined.push(jynxziClips[i]);
       if (i < xqcClips.length) combined.push(xqcClips[i]);
     }
     combined.push(...otherClips);
@@ -3454,6 +3466,12 @@ function renderClipsGrid() {
     } else if (sName.includes('carry') || fName.includes('carry')) {
       streamerTag = '🟢 CarryMinati';
       tagBorderColor = '#22C55E';
+    } else if (sName.includes('clix') || fName.includes('clix')) {
+      streamerTag = '🔵 Clix';
+      tagBorderColor = '#3B82F6';
+    } else if (sName.includes('jynxzi') || fName.includes('jynxzi')) {
+      streamerTag = '🟣 Jynxzi';
+      tagBorderColor = '#A855F7';
     }
     return `
       <div class="clip-card" style="box-shadow:0 3px 12px rgba(0,0,0,0.06);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;">
@@ -3602,6 +3620,8 @@ async function loadAllClips() {
     const speedCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('speed')) || (c.filename && c.filename.toLowerCase().includes('ishowspeed'))).length;
     const kaiCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('kai')) || (c.filename && c.filename.toLowerCase().includes('kai'))).length;
     const carryCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('carry')) || (c.filename && c.filename.toLowerCase().includes('carry'))).length;
+    const clixCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('clix')) || (c.filename && c.filename.toLowerCase().includes('clix'))).length;
+    const jynxziCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('jynxzi')) || (c.filename && c.filename.toLowerCase().includes('jynxzi'))).length;
     const xqcCount = clips.filter(c => (c.streamer && c.streamer.toLowerCase().includes('xqc')) || (c.filename && c.filename.toLowerCase().includes('xqc'))).length;
     const elCaseOh = document.getElementById('countCaseOh');
     if (elCaseOh) elCaseOh.innerText = caseohCount;
@@ -3611,6 +3631,10 @@ async function loadAllClips() {
     if (elKai) elKai.innerText = kaiCount;
     const elCarry = document.getElementById('countCarry');
     if (elCarry) elCarry.innerText = carryCount;
+    const elClix = document.getElementById('countClix');
+    if (elClix) elClix.innerText = clixCount;
+    const elJynxzi = document.getElementById('countJynxzi');
+    if (elJynxzi) elJynxzi.innerText = jynxziCount;
     const elXqc = document.getElementById('countXqc');
     if (elXqc) elXqc.innerText = xqcCount;
     const elAll = document.getElementById('countAll');
