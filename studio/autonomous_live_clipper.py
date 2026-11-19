@@ -84,6 +84,52 @@ TARGET_STREAMERS = [
         "platform": "youtube",
         "url": "https://www.youtube.com/@CarryisLive/live",
         "channel": "CarryisLive",
+        "language": "hindi",
+        "layout": "stack"
+    },
+    {
+        "id": "youtube-technogamerz",
+        "streamer": "Techno Gamerz",
+        "platform": "youtube",
+        "url": "https://www.youtube.com/@TechnoGamerzOfficial/live",
+        "channel": "TechnoGamerzOfficial",
+        "language": "hindi",
+        "layout": "stack"
+    },
+    {
+        "id": "youtube-totalgaming",
+        "streamer": "Total Gaming",
+        "platform": "youtube",
+        "url": "https://www.youtube.com/@TotalGaming093/live",
+        "channel": "TotalGaming093",
+        "language": "hindi",
+        "layout": "stack"
+    },
+    {
+        "id": "youtube-scout",
+        "streamer": "Scout",
+        "platform": "youtube",
+        "url": "https://www.youtube.com/@scoutOP/live",
+        "channel": "scoutOP",
+        "language": "hindi",
+        "layout": "stack"
+    },
+    {
+        "id": "youtube-mortal",
+        "streamer": "Mortal",
+        "platform": "youtube",
+        "url": "https://www.youtube.com/@Morticall/live",
+        "channel": "Morticall",
+        "language": "hindi",
+        "layout": "stack"
+    },
+    {
+        "id": "youtube-liveinsaan",
+        "streamer": "Live Insaan",
+        "platform": "youtube",
+        "url": "https://www.youtube.com/@LiveInsaan/live",
+        "channel": "LiveInsaan",
+        "language": "hindi",
         "layout": "stack"
     },
     {
@@ -285,11 +331,22 @@ def curate_picks_with_ai(s_dir: Path, stream_cfg: dict, meta: dict) -> list[dict
     top_peaks = sorted(peaks, key=lambda x: x["rms"], reverse=True)[:15]
     peaks_summary = ", ".join(f"{p['t']}s (RMS: {p['rms']:.0f})" for p in top_peaks)
 
+    is_hindi = stream_cfg.get("language") == "hindi" or any(k in streamer.lower() for k in ["carry", "techno", "gaming", "scout", "mortal", "insaan"])
+    lang_guidance = ""
+    if is_hindi:
+        lang_guidance = f"""
+Language & Cultural Context:
+The streamer speaks Hindi / Hinglish. Understand Hindi commentary, comedic roasts, drama, gaming slang (e.g., 'bhai', 'arre yaar', 'op', 'gaadi', 'scam', 'police piche pad gayi').
+- Craft high-retention on-screen title cards in punchy English or Hinglish (max 7-8 words, bold present tense, e.g. '{streamer} Roasts GTA 6 Police', '{streamer} Ne Cops Ko Bhaga Diya').
+- Write engaging post captions in lively Hinglish/English with 1 comment question.
+- Hashtags should include Hindi/Indian gaming tags (e.g. ['#{streamer.lower().replace(' ', '')}', '#gta6', '#gamingindia', '#viral', '#carryminati']).
+"""
+
     prompt = f"""You are the Lead Viral Clip Director for YouTube Shorts, TikTok, and Instagram Reels.
 Streamer: {streamer}
 Stream Title: {title}
 Max Available Video Length: {max_video_time:.1f} seconds.
-
+{lang_guidance}
 Dialogue Transcript with timestamps:
 {dialogue_summary}
 
