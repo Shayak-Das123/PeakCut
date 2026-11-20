@@ -290,9 +290,15 @@ def execute_upload_post(post: dict) -> dict:
         return {"ok": True, "url": shorts_url, "id": vid_id}
     except Exception as e:
         err = str(e)
-        post["error"] = err
-        print(f"[Scheduler] YouTube Upload Failed for '{filename}': {err}")
-        return {"ok": False, "error": err}
+        if "uploadLimitExceeded" in err or "exceeded the number of videos" in err:
+            err_human = "YouTube Channel Daily Upload Limit Reached: YouTube caps uploads on new/unverified channels to a few videos per day. Clip is safely scheduled and will retry automatically once YouTube resets your daily window."
+        elif "Quota exceeded" in err or "Video Uploads per day" in err or "429" in err:
+            err_human = "Google API Daily Quota Reached: The daily video upload quota for your Google Cloud API project has been reached for today (resets at midnight PT). Clip is safely scheduled and will retry automatically."
+        else:
+            err_human = err
+        post["error"] = err_human
+        print(f"[Scheduler] YouTube Upload Failed for '{filename}': {err_human}")
+        return {"ok": False, "error": err_human, "raw": err}
 
 
 def post_now(post_id: str) -> dict:
@@ -341,6 +347,11 @@ def start_scheduler_worker():
                     p = due[0]
                     print(f"[Scheduler Daemon] Post {p['id']} is due! Initiating automatic upload...")
                     res = execute_upload_post(p)
+                    if not res.get("ok"):
+                        raw_err = res.get("raw", "") or res.get("error", "")
+                        if any(k in raw_err.lower() for k in ["uploadlimitexceeded", "quota exceeded", "quota metric", "429"]):
+                            p["scheduled_at"] = now + 2700  # retry in 45 mins
+                            print(f"[Scheduler Daemon] Quota/Upload limit reached. Pausing retries for 45 mins. Rescheduled post {p['id']}.")
                     with _lock:
                         # Re-load in case of concurrent modifications
                         cur = _load_data()

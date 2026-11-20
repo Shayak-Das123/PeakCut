@@ -4521,6 +4521,23 @@ function renderPublishingHistory(items) {
     const platColor = isYt ? '#FF0000' : '#E1306C';
     const platName = isYt ? 'YouTube Shorts' : 'Instagram Reels';
     const timeStr = new Date((it.timestamp || Date.now() / 1000) * 1000).toLocaleString();
+    let actionHtml = '';
+    if (it.url) {
+      actionHtml = `<a href="${it.url}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px;color:#38bdf8;text-decoration:none;">▶ View Online</a>`;
+    } else {
+      let errStr = it.error || 'Error';
+      if (errStr.includes('uploadLimitExceeded') || errStr.includes('exceeded the number of videos')) {
+        actionHtml = `<div style="background:rgba(239,68,68,0.12);border:1px solid #ef444455;border-radius:6px;padding:6px 10px;font-size:11px;color:#fca5a5;max-width:480px;line-height:1.4;">
+          <b style="color:#f87171;">⚠️ YouTube Channel Daily Limit:</b> YouTube caps uploads on new or unverified channels to a few videos per day. Your clip is saved safely and queued; it will post automatically when YouTube resets your daily limit.
+        </div>`;
+      } else if (errStr.includes('Quota exceeded') || errStr.includes('Video Uploads per day') || errStr.includes('429')) {
+        actionHtml = `<div style="background:rgba(245,158,11,0.12);border:1px solid #f59e0b55;border-radius:6px;padding:6px 10px;font-size:11px;color:#fde68a;max-width:480px;line-height:1.4;">
+          <b style="color:#fbbf24;">⏳ Google API Daily Quota:</b> The daily upload quota for your Google Cloud Project has reached its limit for today. Resets at midnight PT. Clips remain queued.
+        </div>`;
+      } else {
+        actionHtml = `<span style="font-size:11px;color:#ef4444;">Failed: ${escapeHtml(errStr.slice(0, 180))}</span>`;
+      }
+    }
     return `
       <div style="background:#18181b;border:1px solid #27272a;border-radius:6px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div style="display:flex;align-items:center;gap:12px;">
@@ -4531,7 +4548,7 @@ function renderPublishingHistory(items) {
           </div>
         </div>
         <div>
-          ${it.url ? `<a href="${it.url}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px;color:#38bdf8;text-decoration:none;">▶ View Online</a>` : `<span style="font-size:11px;color:#ef4444;">Failed: ${escapeHtml(it.error || 'Error')}</span>`}
+          ${actionHtml}
         </div>
       </div>
     `;
