@@ -154,11 +154,11 @@ def save_app(platform: str, cid: str, secret: str) -> dict:
     return apps_public()
 
 
-def _new_state(platform: str) -> str:
+def _new_state(platform: str, redirect_uri: str = "") -> str:
     state = secrets.token_urlsafe(16)
     for k in [k for k, v in list(_states.items()) if time.time() - v[1] > 900]:
         _states.pop(k, None)
-    _states[state] = (ctx.uid(), time.time(), platform)
+    _states[state] = (ctx.uid(), time.time(), platform, redirect_uri)
     return state
 
 
@@ -166,16 +166,18 @@ def _take_state(state: str, platform: str):
     got = _states.pop(state or "", None)
     if not got or got[0] != ctx.uid() or got[2] != platform or time.time() - got[1] > 900:
         raise ValueError("This sign-in has expired. Press Connect again.")
+    return got
 
 
-def connect_url(platform: str) -> str:
+def connect_url(platform: str, redirect_base: str = "") -> str:
     """Where the Connect button sends the browser: the platform's own sign-in page."""
     if platform not in APP_FOR:
         raise ValueError("Unknown platform.")
     if not can_connect(platform):
         raise ValueError(f"Connecting {PLATFORM_NAMES[platform]} isn't set up on this server yet.")
     cid, _ = app_keys(APP_FOR[platform])
-    state, redirect = _new_state(platform), redirect_for(platform)
+    redirect = f"{redirect_base.rstrip('/')}/oauth/{platform}/callback" if redirect_base else redirect_for(platform)
+    state = _new_state(platform, redirect)
     if platform == "youtube":
         return "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode({
             "client_id": cid, "redirect_uri": redirect, "response_type": "code", "scope": YT_SCOPES,
@@ -188,11 +190,16 @@ def connect_url(platform: str) -> str:
 
 
 def connect_finish(platform: str, code: str, state: str) -> dict:
-    _take_state(state, platform)
+    got = _take_state(state, platform)
+    saved_redirect = got[3] if len(got) > 3 else ""
     code = (code or "").split("#")[0]           # Instagram adds "#_" to the code
     if not code:
         raise ValueError("The platform did not send a sign-in code. Try again.")
-    return {"youtube": _youtube_finish, "instagram": _instagram_finish, "tiktok": _tiktok_finish}[platform](code)
+    if platform == "youtube":
+        return _youtube_finish(code, redirect_uri=saved_redirect)
+    if platform == "instagram":
+        return _instagram_finish(code, redirect_uri=saved_redirect)
+    return _tiktok_finish(code, redirect_uri=saved_redirect)
 
 
 # ------------------------------------------------------------------ links the platforms can fetch a clip from
@@ -306,11 +313,11 @@ def youtube_ready() -> bool:
     return can_connect("youtube")
 
 
-def _youtube_finish(code: str) -> dict:
+def _youtube_finish(code: str, redirect_uri: str = "") -> dict:
     cid, secret = app_keys("google")
     tok = _check(httpx.post("https://oauth2.googleapis.com/token", data={
         "code": code, "client_id": cid, "client_secret": secret,
-        "redirect_uri": redirect_for("youtube"), "grant_type": "authorization_code"}, timeout=30), "Google sign-in").json()
+        "redirect_uri": redirect_uri or redirect_for("youtube"), "grant_type": "authorization_code"}, timeout=30), "Google sign-in").json()
     if "refresh_token" not in tok:
         raise ValueError("Google did not return a long-lived sign-in. Remove PeakCut's access in your Google account and connect again.")
     ch = _check(httpx.get("https://www.googleapis.com/youtube/v3/channels", params={"part": "snippet", "mine": "true"},
@@ -367,11 +374,11 @@ def youtube_views(acc, ids: list) -> dict:
 
 
 # ------------------------------------------------------------------ Instagram (Instagram Login, professional accounts)
-def _instagram_finish(code: str) -> dict:
+def _instagram_finish(code: str, redirect_uri: str = "") -> dict:
     cid, secret = app_keys("instagram")
     short = _check(httpx.post("https://api.instagram.com/oauth/access_token", data={
         "client_id": cid, "client_secret": secret, "grant_type": "authorization_code",
-        "redirect_uri": redirect_for("instagram"), "code": code}, timeout=30), "Instagram sign-in").json()
+        "redirect_uri": redirect_uri or redirect_for("instagram"), "code": code}, timeout=30), "Instagram sign-in").json()
     if isinstance(short.get("data"), list) and short["data"]:
         short = short["data"][0]
     if "instagram_business_content_publish" not in str(short.get("permissions", "instagram_business_content_publish")):
@@ -481,8 +488,8 @@ def _tt_tokens(form: dict) -> dict:
                           headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=30), "TikTok sign-in")
 
 
-def _tiktok_finish(code: str) -> dict:
-    tok = _tt_tokens({"code": code, "grant_type": "authorization_code", "redirect_uri": redirect_for("tiktok")})
+def _tiktok_finish(code: str, redirect_uri: str = "") -> dict:
+    tok = _tt_tokens({"code": code, "grant_type": "authorization_code", "redirect_uri": redirect_uri or redirect_for("tiktok")})
     if "video.publish" not in str(tok.get("scope", "")):
         raise ValueError("PeakCut needs permission to post videos. Connect again and allow posting.")
     acc = {"id": f"tt_{tok['open_id']}", "platform": "tiktok", "name": "TikTok account", "added": time.time(),

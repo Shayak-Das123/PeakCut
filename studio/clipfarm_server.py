@@ -246,7 +246,7 @@ async def ensure_user_context(request: Request, call_next):
     proto = request.headers.get("x-forwarded-proto")
     if not proto:
         proto = "https" if ("lhr.life" in host or "ngrok" in host or "trycloudflare" in host or "pinggy" in host) else request.url.scheme
-    if host and not host.startswith("127.0.0.1") and not host.startswith("localhost"):
+    if host:
         config.PUBLIC_URL = f"{proto}://{host}".rstrip("/")
     return await call_next(request)
 
@@ -3350,12 +3350,17 @@ def api_remove_account(aid: str):
 
 
 @app.get("/oauth/{platform}/start")
-def connect_start(platform: str):
+def connect_start(platform: str, request: Request):
     ctx.set_uid("u_local")
     if platform not in accounts.PLATFORM_NAMES:
         raise HTTPException(status_code=404, detail="Unknown platform")
     try:
-        url = accounts.connect_url(platform)
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+        proto = request.headers.get("x-forwarded-proto")
+        if not proto:
+            proto = "https" if ("lhr.life" in host or "ngrok" in host or "trycloudflare" in host or "pinggy" in host) else request.url.scheme
+        base_url = f"{proto}://{host}".rstrip("/") if host else config.PUBLIC_URL
+        url = accounts.connect_url(platform, redirect_base=base_url)
         return RedirectResponse(url, status_code=303)
     except Exception as e:
         return RedirectResponse(f"/?connect_error={quote(str(e))}#social", status_code=303)
