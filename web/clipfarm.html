@@ -3813,6 +3813,13 @@ async function loadAllClips() {
   grid.innerHTML = '<div style="color:var(--dim);grid-column:1/-1;text-align:center;padding:40px;">Loading clips library...</div>';
   try {
     const res = await fetch('/api/clips');
+    if (!res.ok) {
+      throw new Error(`Server returned HTTP ${res.status}. If accessing via tunnel, please refresh.`);
+    }
+    const cType = res.headers.get('content-type') || '';
+    if (!cType.includes('application/json')) {
+      throw new Error('Tunnel connection was reset or returned an HTML error page. Please refresh the page or use the updated tunnel link.');
+    }
     const clips = await res.json();
     allClipsData = clips;
     const mBadge = document.getElementById('mNavClipsBadge');
