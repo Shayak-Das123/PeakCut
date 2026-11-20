@@ -524,6 +524,8 @@ def render_session_picks(s_dir: Path, stream_cfg: dict, picks: list[dict]):
     write_json(s_dir / "final.json", {"curated_picks": final_picks})
     write_json(s_dir / "progress.json", {
         "status": "Complete",
+        "action": "complete",
+        "done": True,
         "time": time.time(),
         "total_clips": len(final_picks)
     })

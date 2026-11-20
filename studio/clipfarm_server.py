@@ -796,13 +796,35 @@ def _enrich_job_info(d: Path, job_info: Optional[dict], info: dict, st: dict, fi
 
 
 # --- Streams & Clips APIs ---
+def _is_active_job(pj: Optional[dict]) -> bool:
+    if not pj:
+        return False
+    if pj.get("done"):
+        return False
+    st_lower = str(pj.get("status", "")).lower()
+    act_lower = str(pj.get("action", "")).lower()
+    if st_lower in ("complete", "finished", "done", "stopped", "idle"):
+        return False
+    if act_lower in ("complete", "finished", "done", "stopped", "idle"):
+        return False
+    return True
+
+
 @app.get("/api/streams")
 def list_streams():
     streams_root = WORK_DIR / "streams"
     if not streams_root.exists():
         return []
     items = []
-    for d in sorted(streams_root.glob("*"), key=lambda p: p.stat().st_mtime, reverse=True):
+    
+    def stream_sort_key(d: Path):
+        clips_count = len(list((d / "clips").glob("*.mp4"))) if (d / "clips").exists() else 0
+        live_s = ACTIVE_LIVE_SESSIONS.get(d.name)
+        is_active = bool(live_s and hasattr(live_s, "is_alive") and live_s.is_alive()) or (d.name in ACTIVE_JOBS)
+        prio = 2 if is_active else (1 if clips_count > 0 else 0)
+        return (prio, d.stat().st_mtime)
+
+    for d in sorted(streams_root.glob("*"), key=stream_sort_key, reverse=True):
         st = read_json(d / "state.json", {})
         info = read_json(d / "info.json", {})
         final = read_json(d / "final.json", {})
@@ -811,13 +833,13 @@ def list_streams():
         raw_job = (live_s.get_status() if hasattr(live_s, "get_status") else None) or ACTIVE_JOBS.get(d.name)
         if not raw_job and (d / "progress.json").exists():
             pj = read_json(d / "progress.json", None)
-            if pj and not pj.get("done") and pj.get("action") not in ("stopped", "idle", "complete"):
+            if _is_active_job(pj):
                 raw_job = pj
         job_info = _enrich_job_info(d, raw_job, info, st, final) if raw_job else None
         stage_val = (
             live_s.status if live_s
             else "rendered" if clips_count > 0
-            else "ready_to_render" if final.get("clips")
+            else "ready_to_render" if (final.get("clips") or final.get("curated_picks"))
             else "shortlisted" if (d / "shortlist.json").exists()
             else "scanned" if st.get("chunks")
             else "processing" if job_info and not job_info.get("done")
@@ -892,7 +914,7 @@ def get_stream(key: str):
     raw_job = (live_s.get_status() if hasattr(live_s, "get_status") else None) or ACTIVE_JOBS.get(key)
     if not raw_job and (d / "progress.json").exists():
         pj = read_json(d / "progress.json", None)
-        if pj and not pj.get("done") and pj.get("action") not in ("stopped", "idle", "complete"):
+        if _is_active_job(pj):
             raw_job = pj
     job_info = _enrich_job_info(d, raw_job, info, st, final_data) if raw_job else None
 

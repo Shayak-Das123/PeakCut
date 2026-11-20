@@ -264,9 +264,14 @@ header.topbar {
   border: 1px solid transparent;
   transition: all 0.15s;
 }
-.stream-item:hover, .stream-item.active {
+.stream-item:hover {
   border-color: var(--brand);
   background: var(--brand-soft);
+}
+.stream-item.active {
+  border-color: #EA580C !important;
+  background: #FFF7ED !important;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.3) !important;
 }
 .badge {
   font-size: 11px;
@@ -3220,10 +3225,11 @@ async function loadStreams() {
       `;
     }).join('');
 
-    if (activeKey) {
+    if (activeKey && streams.some(s => s.key === activeKey)) {
       selectStream(activeKey, true);
     } else if (streams.length > 0) {
-      selectStream(streams[0].key);
+      const best = streams.find(s => s.clips_count > 0) || streams.find(s => s.stage === 'active' || (s.job && !s.job.done)) || streams[0];
+      selectStream(best.key);
     }
   } catch (e) {
     console.error(e);
@@ -3450,7 +3456,7 @@ function renderStreamDetail(d, isBackgroundUpdate = false) {
               No clips in this individual live buffer session.
               <div style="margin-top:10px;">
                 <button class="btn btn-sm" style="background:#EA580C;color:#fff;font-weight:700;padding:6px 14px;" onclick="switchTab('clips')">
-                  👉 Open Clips Library to view all 389+ finished clips
+                  👉 Open Clips Library to view all finished clips
                 </button>
               </div>
             </div>
