@@ -98,9 +98,13 @@ def render_curated_reel(
     )
     lst_file.unlink(missing_ok=True)
 
+    # Filter out in-game character/NPC dialogue so only streamer lines get kinetic subtitles
+    from studio.diarization import filter_streamer_words
+    streamer_words = filter_streamer_words(streamer, words_in_clip)
+
     # Relative words for kinetic styling
     rel_words = []
-    for w in words_in_clip:
+    for w in streamer_words:
         rel_words.append({
             "w": w["w"],
             "s": round(max(0.0, w["s"] - s), 2),
@@ -181,10 +185,7 @@ def render_curated_reel(
     comp_txt = out_dir / f"{Path(out_name).stem}.txt"
     comp_txt.write_text("\n".join(txt_lines), encoding="utf-8")
 
-    # Clean intermediate section
-    try:
-        sec_file.unlink(missing_ok=True)
-    except Exception:
-        pass
+    # Keep intermediate section file for instant re-rendering / caption editing
+    # sec_file.unlink(missing_ok=True)
     print(f"[{cid}] SUCCESS -> {out_name} (Hook: '{hook}')")
     return meta

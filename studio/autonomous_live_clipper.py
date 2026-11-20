@@ -520,8 +520,8 @@ def render_session_picks(s_dir: Path, stream_cfg: dict, picks: list[dict]):
             except Exception as sched_err:
                 print(f"[{streamer}] Scheduler enqueue error: {sched_err}")
 
-    write_json(s_dir / "picks.json", {"curated_picks": final_picks})
-    write_json(s_dir / "final.json", {"curated_picks": final_picks})
+    write_json(s_dir / "picks.json", {"curated_picks": final_picks, "clips": final_picks})
+    write_json(s_dir / "final.json", {"curated_picks": final_picks, "clips": final_picks})
     write_json(s_dir / "progress.json", {
         "status": "Complete",
         "action": "complete",

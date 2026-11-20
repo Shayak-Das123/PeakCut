@@ -2081,6 +2081,25 @@ def save_clip_draft(key: str, cid: str, payload: dict):
     return {"ok": True, "message": "Draft saved successfully!"}
 
 
+@app.post("/api/streams/{key}/clips/{cid}/remove-captions")
+def remove_clip_captions(key: str, cid: str):
+    """One-click removal of all burned-in subtitles and immediate re-render."""
+    return rerender_clip_custom(key, cid, {"subtitles_enabled": False, "words": []})
+
+
+@app.post("/api/streams/{key}/clips/{cid}/auto-filter-characters")
+def auto_filter_characters(key: str, cid: str):
+    """Diarizes dialogue: keeps only the live streamer's voice and removes character speech."""
+    d = stream_dir(key)
+    info = read_json(d / "info.json", {})
+    streamer = info.get("streamer", "Streamer")
+    existing_words_file = d / "render" / cid / "words.json"
+    existing_words = read_json(existing_words_file, []) if existing_words_file.exists() else []
+    from studio.diarization import filter_streamer_words
+    filtered_words = filter_streamer_words(streamer, existing_words)
+    return rerender_clip_custom(key, cid, {"words": filtered_words})
+
+
 @app.post("/api/streams/{key}/clips/{cid}/rerender-custom")
 def rerender_clip_custom(key: str, cid: str, payload: dict):
     d = stream_dir(key)
@@ -2088,7 +2107,9 @@ def rerender_clip_custom(key: str, cid: str, payload: dict):
     if not final_file.exists():
         raise HTTPException(status_code=404, detail="final.json not found")
     final_data = read_json(final_file, {"clips": []})
-    clip = next((c for c in final_data.get("clips", []) if match_clip_id(c.get("id"), cid)), None)
+    clips_list = final_data.get("clips") or final_data.get("curated_picks") or []
+    final_data["clips"] = clips_list
+    clip = next((c for c in clips_list if match_clip_id(c.get("id"), cid)), None)
     if not clip:
         raise HTTPException(status_code=404, detail="Clip not found")
 
@@ -2147,21 +2168,26 @@ def rerender_clip_custom(key: str, cid: str, payload: dict):
     existing_words_file = d / "render" / cid / "words.json"
     existing_words = read_json(existing_words_file, []) if existing_words_file.exists() else []
 
-    if "words" in payload and isinstance(payload["words"], list) and payload["words"]:
-        updated_words = payload["words"]
-    elif "cues" in payload and isinstance(payload["cues"], list) and payload["cues"]:
+    if payload.get("subtitles_enabled") is False:
         updated_words = []
-        for cue in payload["cues"]:
-            cue_words = [w.strip() for w in cue.get("text", "").split() if w.strip()]
-            if not cue_words:
-                continue
-            s_val = float(cue.get("start", 0.0))
-            e_val = float(cue.get("end", s_val + 1.0))
-            step = (e_val - s_val) / len(cue_words)
-            for i, cw in enumerate(cue_words):
-                ws = round(s_val + i * step, 2)
-                we = round(ws + step * 0.9, 2)
-                updated_words.append({"w": cw, "s": ws, "e": we})
+    elif "words" in payload and isinstance(payload["words"], list):
+        updated_words = payload["words"]
+    elif "cues" in payload and isinstance(payload["cues"], list):
+        if not payload["cues"]:
+            updated_words = []
+        else:
+            updated_words = []
+            for cue in payload["cues"]:
+                cue_words = [w.strip() for w in cue.get("text", "").split() if w.strip()]
+                if not cue_words:
+                    continue
+                s_val = float(cue.get("start", 0.0))
+                e_val = float(cue.get("end", s_val + 1.0))
+                step = (e_val - s_val) / len(cue_words)
+                for i, cw in enumerate(cue_words):
+                    ws = round(s_val + i * step, 2)
+                    we = round(ws + step * 0.9, 2)
+                    updated_words.append({"w": cw, "s": ws, "e": we})
     elif "full_transcript" in payload and payload["full_transcript"].strip():
         new_text = payload["full_transcript"].strip()
         new_tokens = [w.strip() for w in new_text.split() if w.strip()]
