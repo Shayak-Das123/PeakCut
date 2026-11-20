@@ -1927,6 +1927,20 @@ video::backdrop {
 
     <!-- DASHBOARD TAB -->
     <div class="content" id="tabDashboard">
+      <!-- Direct Jump to Finished Clips Library -->
+      <div style="background:linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);border:1.5px solid #FB923C;border-radius:12px;padding:12px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:22px;">🎬</span>
+          <div>
+            <div style="font-size:14px;font-weight:800;color:#9A3412;">Looking for all your generated vertical clips?</div>
+            <div style="font-size:12px;color:#C2410C;">Browse, preview, and download all <span id="bannerClipsCount" style="font-weight:800;">389+</span> clips in the Clips Library!</div>
+          </div>
+        </div>
+        <button class="btn" style="background:#EA580C;color:#fff;border-color:#C2410C;font-weight:800;font-size:13px;padding:8px 16px;border-radius:8px;" onclick="switchTab('clips')">
+          👉 Open Clips Library (<span id="bannerClipsCountBtn">389</span>)
+        </button>
+      </div>
+
       <div class="grid-2">
         <div class="card">
           <div class="card-title">
@@ -3296,8 +3310,13 @@ function renderStreamDetail(d, isBackgroundUpdate = false) {
           ` : ''}
 
           ${renderedClips.length === 0 && (!isProcessing || !d.job || d.job.action !== 'render') ? `
-            <div style="color:var(--dim);font-size:13px;padding:30px;grid-column:1/-1;text-align:center;border:1px dashed var(--line);border-radius:8px;">
-              No clips rendered yet. Once viral moments are detected, they automatically render here!
+            <div style="color:var(--dim);font-size:13px;padding:24px;grid-column:1/-1;text-align:center;border:1px dashed var(--line);border-radius:8px;">
+              No clips in this individual live buffer session.
+              <div style="margin-top:10px;">
+                <button class="btn btn-sm" style="background:#EA580C;color:#fff;font-weight:700;padding:6px 14px;" onclick="switchTab('clips')">
+                  👉 Open Clips Library to view all 389+ finished clips
+                </button>
+              </div>
             </div>
           ` : ''}
         </div>
@@ -3639,6 +3658,10 @@ async function loadAllClips() {
     if (elXqc) elXqc.innerText = xqcCount;
     const elAll = document.getElementById('countAll');
     if (elAll) elAll.innerText = clips.length;
+    const bCount = document.getElementById('bannerClipsCount');
+    if (bCount) bCount.innerText = `${clips.length}+`;
+    const bCountBtn = document.getElementById('bannerClipsCountBtn');
+    if (bCountBtn) bCountBtn.innerText = clips.length;
 
     renderClipsGrid();
   } catch (e) {
@@ -6698,6 +6721,11 @@ function switchTab(tab) {
   document.querySelectorAll('.mobile-bottom-nav button').forEach(btn => btn.classList.remove('active'));
   const activeMBtn = document.getElementById(mNavMap[tab]);
   if (activeMBtn) activeMBtn.classList.add('active');
+  try {
+    if (window.location.hash !== '#' + tab) {
+      window.history.replaceState(null, '', '#' + tab);
+    }
+  } catch (e) {}
   if (tab === 'creators') {
     loadCreators();
   } else if (tab === 'clips') {
@@ -6844,10 +6872,11 @@ function escapeJs(str) {
 }
 
 fetchStatus();
+loadAllClips();
 setInterval(fetchStatus, 6000);
 setInterval(checkLiveStatus, 2000);
 
-// Check OAuth callback redirect or social hash on load
+// Check OAuth callback redirect or hash on load
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('connected')) {
   const plat = urlParams.get('connected');
@@ -6859,6 +6888,12 @@ if (urlParams.get('connected')) {
   alert(`⚠️ Connection Notice: ${urlParams.get('connect_error')}`);
   window.history.replaceState({}, document.title, window.location.pathname + '#social');
   switchTab('social');
+} else if (window.location.hash === '#clips' || window.location.hash === '#library') {
+  switchTab('clips');
+} else if (window.location.hash === '#creators') {
+  switchTab('creators');
+} else if (window.location.hash === '#storage') {
+  switchTab('storage');
 } else if (window.location.hash === '#social') {
   switchTab('social');
 }

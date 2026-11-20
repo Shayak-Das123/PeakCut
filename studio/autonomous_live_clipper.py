@@ -512,8 +512,24 @@ def render_session_picks(s_dir: Path, stream_cfg: dict, picks: list[dict]):
     except Exception:
         pass
 
+def auto_free_space(min_free_gb: float = 6.0):
+    try:
+        free_gb = shutil.disk_usage(str(WORK_DIR)).free / (1024 ** 3)
+        if free_gb < min_free_gb:
+            print(f"[Disk Safeguard] Free space is {free_gb:.1f} GB (< {min_free_gb} GB). Purging old .ts chunks...")
+            cutoff = time.time() - 900  # 15 minutes ago
+            for ts_path in WORK_DIR.glob("**/*.ts"):
+                try:
+                    if ts_path.stat().st_mtime < cutoff:
+                        ts_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[Disk Safeguard Error] {e}")
+
 def run_autonomous_clipping_cycle():
     """Single pass of checking live streamers and clipping active broadcasts."""
+    auto_free_space(min_free_gb=6.0)
     print(f"[Daemon] Checking live streamers at {time.strftime('%Y-%m-%d %H:%M:%S')}...")
     active_found = []
 
@@ -534,13 +550,24 @@ def run_autonomous_clipping_cycle():
 
     for stream_cfg, hls_url, meta in active_found:
         name = stream_cfg["streamer"]
-        # Ingest 300s of fresh live footage
-        s_dir = record_stream_buffer(stream_cfg, hls_url, meta, record_seconds=240)
-        # Curate with AI
-        picks = curate_picks_with_ai(s_dir, stream_cfg, meta)
-        if picks:
-            # Render reels with GPU NVENC
-            render_session_picks(s_dir, stream_cfg, picks)
+        try:
+            # Ingest 240s of fresh live footage
+            s_dir = record_stream_buffer(stream_cfg, hls_url, meta, record_seconds=240)
+            # Curate with AI
+            picks = curate_picks_with_ai(s_dir, stream_cfg, meta)
+            if picks:
+                # Render reels with GPU NVENC
+                render_session_picks(s_dir, stream_cfg, picks)
+            else:
+                # Clean up empty session buffer
+                buf_dir = s_dir / "buffer"
+                if buf_dir.exists():
+                    shutil.rmtree(buf_dir, ignore_errors=True)
+                clips_f = list((s_dir / "clips").glob("*.mp4")) if (s_dir / "clips").exists() else []
+                if not clips_f:
+                    shutil.rmtree(s_dir, ignore_errors=True)
+        except Exception as err:
+            print(f"[{name}] Error processing session: {err}")
 
 def daemon_main():
     print("[Autonomous Live Clipper Daemon Started]")
