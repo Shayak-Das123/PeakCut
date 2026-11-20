@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT / "ClipFarm" / "scripts"))
 sys.path.insert(0, str(ROOT))
 
 import numpy as np
-from studio import ai, config, ctx
+from studio import ai, config, ctx, scheduler
 from studio import transcribe as st_transcribe
 from clipfarm.util import read_json, write_json, stream_dir
 from scripts.render_elite_clips import load_stream_segments, render_curated_reel
@@ -347,6 +347,17 @@ Streamer: {streamer}
 Stream Title: {title}
 Max Available Video Length: {max_video_time:.1f} seconds.
 {lang_guidance}
+
+SPEAKER & NARRATIVE DIARIZATION (Streamer vs Character):
+In gameplay livestreams (such as GTA 6):
+- GAME CHARACTERS / NPCs: Dialogue from in-game characters (Lucia, Jason, Police, Pedestrians, Cutscenes).
+- STREAMER: Live voice over microphone, screams, laughter, live commentary, panic, talking to viewers/chat.
+VIRAL SELECTION CRITERIA:
+1. Understand WHO is speaking: identify whether dialogue belongs to the game character or streamer.
+2. The most viral moments feature the STREAMER having an intense, hilarious, or shocked reaction to what an in-game character says or does (e.g. cop chase, roast, unexpected dialogue).
+3. Set "speaker_type" to either "streamer_reaction" (streamer reacting to game event/character) or "character_interaction" (streamer conversing/arguing with character).
+4. The hook MUST be in bold present tense describing the moment (e.g. '{streamer} Can't Believe Lucia's Answer', '{streamer} Instantly Panics at GTA 6 Cops'). Max 7-8 words, NO raw syllable quotes!
+
 Dialogue Transcript with timestamps:
 {dialogue_summary}
 
@@ -356,10 +367,9 @@ Excitement & Loudness Peaks:
 Select exactly 3 to 4 viral clips following the 9-point criteria:
 1. Duration: 20 to 38 seconds.
 2. Clean start and end boundaries: Never cut mid-sentence, never cut off punchlines.
-3. Editorial Hook: Max 7-8 words, bold, present tense, describing what happens (e.g. '{streamer} Tests GTA 6 Driving Physics', '{streamer} Instantly Regrets Starting Fight').
-   CRITICAL: NEVER use raw spoken syllable quotes (like '"I\\'m a lion..." - {streamer}'). Explain what happens!
+3. Editorial Hook: Max 7-8 words, bold present tense, explaining what happens.
 4. Caption: 1-2 punchy sentences describing the moment + 1 question driving viewer comments.
-5. Hashtags: 4-6 viral tags (e.g. ['#{streamer.lower().replace(' ', '')}', '#gta6', '#gaming', '#twitch', '#viral']).
+5. Hashtags: 4-6 viral tags (e.g. ['#{streamer.lower().replace(' ', '')}', '#gta6', '#gaming', '#Shorts', '#viral']).
 6. Score: 92 to 99.
 7. Layout: 'stack'.
 
@@ -380,6 +390,7 @@ All 'start' and 'end' timestamps must be between 0.0 and {max_video_time:.1f}.
                         "title": {"type": "STRING"},
                         "caption": {"type": "STRING"},
                         "hashtags": {"type": "ARRAY", "items": {"type": "STRING"}},
+                        "speaker_type": {"type": "STRING"},
                         "score": {"type": "NUMBER"},
                         "layout": {"type": "STRING"}
                     },
@@ -466,7 +477,7 @@ def render_session_picks(s_dir: Path, stream_cfg: dict, picks: list[dict]):
         )
 
         if meta:
-            final_picks.append({
+            clip_record = {
                 "id": cid,
                 "file": meta.get("file"),
                 "stream": stream_key,
@@ -483,10 +494,31 @@ def render_session_picks(s_dir: Path, stream_cfg: dict, picks: list[dict]):
                 "caption": caption,
                 "hashtags": hashtags,
                 "score": score,
+                "speaker_type": p.get("speaker_type", "streamer_reaction"),
                 "layout": "stack",
                 "words": len(rel_words),
                 "words_list": rel_words
-            })
+            }
+            final_picks.append(clip_record)
+
+            # Automatically enqueue into 1-hour schedule (Approved if Autopilot ON, Review Queue if OFF)
+            try:
+                scheduler.add_rendered_clip_to_schedule({
+                    "id": cid,
+                    "filename": meta.get("file"),
+                    "file": meta.get("file"),
+                    "filepath": str(out_dir / meta.get("file")),
+                    "streamer": streamer,
+                    "hook": hook,
+                    "title": hook,
+                    "caption": caption,
+                    "hashtags": hashtags,
+                    "score": score,
+                    "duration": dur,
+                    "speaker_type": p.get("speaker_type", "streamer_reaction")
+                })
+            except Exception as sched_err:
+                print(f"[{streamer}] Scheduler enqueue error: {sched_err}")
 
     write_json(s_dir / "picks.json", {"curated_picks": final_picks})
     write_json(s_dir / "final.json", {"curated_picks": final_picks})

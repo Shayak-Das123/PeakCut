@@ -1783,6 +1783,11 @@ video::backdrop {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
         Clips Library
       </button>
+      <button onclick="switchTab('schedule')" id="navTabSchedule">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        Posting Schedule & Review
+        <span id="navScheduleBadge" style="background:#059669;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px;display:none;">0</span>
+      </button>
       <button onclick="switchTab('storage')" id="navTabStorage">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
         Media & Storage
@@ -2430,6 +2435,118 @@ video::backdrop {
         </div>
         <div id="publishingHistoryList" style="display:flex;flex-direction:column;gap:8px;">
           <div style="color:var(--dim);font-size:12.5px;padding:20px;text-align:center;">No videos published yet. Post a clip above or enable Autonomous Auto-Pilot!</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCHEDULE & REVIEW QUEUE TAB -->
+    <div class="content" id="tabSchedule" style="display:none;">
+      <!-- TOP BANNER: AUTOPILOT MASTER SWITCH & NEXT POST COUNTDOWN -->
+      <div class="card" style="border:1px solid #10b981;background:linear-gradient(180deg, rgba(16,185,129,0.08) 0%, rgba(24,24,27,0.85) 100%);margin-bottom:20px;padding:18px 20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+              <span style="font-size:26px;">📅</span>
+              <b style="font-size:18px;color:#fff;">1-Hour Automated YouTube Shorts Posting Schedule</b>
+              <span id="schedAutopilotBadge" class="badge" style="background:#064e3b;color:#34d399;font-weight:700;font-size:11px;padding:4px 10px;">● AUTOPILOT ACTIVE (1H Interval)</span>
+            </div>
+            <p style="font-size:12.5px;color:var(--dim);margin:0;line-height:1.4;" id="schedAutopilotDesc">
+              Autopilot is ON: New AI-rendered clips are automatically approved and scheduled 1 hour after each other directly to your connected YouTube Shorts channel.
+            </p>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-sm" id="btnToggleAutopilot" onclick="toggleScheduleAutopilot()" style="background:#059669;color:#fff;font-weight:700;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;">
+              ⚡ Autopilot: ON
+            </button>
+            <button class="btn btn-sm btn-outline" onclick="loadScheduleData()" style="padding:8px 12px;font-size:11px;">
+              🔄 Refresh Queue
+            </button>
+            <button class="btn btn-sm btn-outline" onclick="purgeAllClipsConfirm()" style="padding:8px 12px;font-size:11px;color:#ef4444;border-color:#7f1d1d;">
+              🗑️ Delete All Clips
+            </button>
+          </div>
+        </div>
+
+        <!-- STATS BAR -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #27272a;">
+          <div style="background:#18181b;padding:10px 14px;border-radius:8px;border:1px solid #27272a;">
+            <div style="font-size:11px;color:var(--dim);">Next Upload To YouTube</div>
+            <div id="statNextPostTime" style="font-size:15px;font-weight:800;color:#34d399;margin-top:2px;">None scheduled</div>
+          </div>
+          <div style="background:#18181b;padding:10px 14px;border-radius:8px;border:1px solid #27272a;">
+            <div style="font-size:11px;color:var(--dim);">Pending Review Queue</div>
+            <div id="statPendingCount" style="font-size:15px;font-weight:800;color:#fbbf24;margin-top:2px;">0 clips</div>
+          </div>
+          <div style="background:#18181b;padding:10px 14px;border-radius:8px;border:1px solid #27272a;">
+            <div style="font-size:11px;color:var(--dim);">Scheduled In Queue</div>
+            <div id="statApprovedCount" style="font-size:15px;font-weight:800;color:#38bdf8;margin-top:2px;">0 clips</div>
+          </div>
+          <div style="background:#18181b;padding:10px 14px;border-radius:8px;border:1px solid #27272a;">
+            <div style="font-size:11px;color:var(--dim);">Published Shorts</div>
+            <div id="statPostedCount" style="font-size:15px;font-weight:800;color:#a78bfa;margin-top:2px;">0 shorts</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FILTER / SUB-TABS -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="btn btn-sm" id="subtabReviewBtn" onclick="switchScheduleSubtab('review')" style="background:#27272a;color:#fff;font-weight:700;padding:7px 14px;border:1px solid #3f3f46;">
+          📋 Review Queue (Pending Approval) <span id="subtabPendingBadge" class="badge" style="background:#d97706;color:#fff;margin-left:4px;">0</span>
+        </button>
+        <button class="btn btn-sm btn-outline" id="subtabApprovedBtn" onclick="switchScheduleSubtab('approved')" style="padding:7px 14px;">
+          ⏰ Approved Schedule Timeline <span id="subtabApprovedBadge" class="badge" style="background:#0284c7;color:#fff;margin-left:4px;">0</span>
+        </button>
+        <button class="btn btn-sm btn-outline" id="subtabPostedBtn" onclick="switchScheduleSubtab('posted')" style="padding:7px 14px;">
+          ✅ Published to YouTube <span id="subtabPostedBadge" class="badge" style="background:#059669;color:#fff;margin-left:4px;">0</span>
+        </button>
+      </div>
+
+      <!-- SUBTAB 1: REVIEW QUEUE (PENDING APPROVAL) -->
+      <div id="secScheduleReview" style="display:block;">
+        <div class="card" style="margin-bottom:14px;background:#18181b;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <b style="font-size:14px;color:#fff;">Clips Awaiting Your Approval</b>
+              <div style="font-size:11.5px;color:var(--dim);margin-top:2px;">Approve clips to schedule them 1 hour apart, or click Post Now for immediate upload</div>
+            </div>
+            <span id="reviewQueueCountNote" style="font-size:11.5px;color:#fbbf24;font-weight:700;">0 clips</span>
+          </div>
+          <div id="schedPendingGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:16px;">
+            <div style="color:var(--dim);font-size:12.5px;padding:30px;text-align:center;grid-column:1/-1;">No clips waiting for review. When Autopilot is OFF, newly cut clips appear here!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBTAB 2: APPROVED SCHEDULE TIMELINE -->
+      <div id="secScheduleApproved" style="display:none;">
+        <div class="card" style="margin-bottom:14px;background:#18181b;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <b style="font-size:14px;color:#fff;">Upcoming YouTube Shorts Timeline (1-Hour Intervals)</b>
+              <div style="font-size:11.5px;color:var(--dim);margin-top:2px;">Sequential queue: Each clip will be automatically uploaded when its time arrives</div>
+            </div>
+            <span style="font-size:11.5px;color:#34d399;font-weight:700;">● Auto-Upload Daemon Active (Every 20s)</span>
+          </div>
+          <div id="schedApprovedList" style="display:flex;flex-direction:column;gap:12px;">
+            <div style="color:var(--dim);font-size:12.5px;padding:30px;text-align:center;">No clips currently scheduled. Approve clips from the Review Queue or turn Autopilot ON!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBTAB 3: PUBLISHED SHORTS -->
+      <div id="secSchedulePosted" style="display:none;">
+        <div class="card" style="margin-bottom:14px;background:#18181b;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <b style="font-size:14px;color:#fff;">Successfully Published YouTube Shorts</b>
+              <div style="font-size:11.5px;color:var(--dim);margin-top:2px;">Live on channel "Mr Oak GAMING"</div>
+            </div>
+            <button class="btn btn-sm btn-outline" style="font-size:11px;" onclick="loadScheduleData()">🔄 Refresh</button>
+          </div>
+          <div id="schedPostedList" style="display:flex;flex-direction:column;gap:12px;">
+            <div style="color:var(--dim);font-size:12.5px;padding:30px;text-align:center;">No videos published yet. When a scheduled time arrives, published clips appear here!</div>
+          </div>
         </div>
       </div>
     </div>
@@ -3889,6 +4006,300 @@ async function postToSocial(platform, filename, btnEl) {
       btnEl.innerHTML = origText;
       btnEl.disabled = false;
     }
+  }
+}
+
+// -------------------------------------------------------------------------
+// 1-Hour Schedule & Review Queue Client Logic
+// -------------------------------------------------------------------------
+let scheduleDataCache = null;
+let currentScheduleSubtab = 'review';
+
+function switchScheduleSubtab(tab) {
+  currentScheduleSubtab = tab;
+  const secReview = document.getElementById('secScheduleReview');
+  const secApproved = document.getElementById('secScheduleApproved');
+  const secPosted = document.getElementById('secSchedulePosted');
+  const btnReview = document.getElementById('subtabReviewBtn');
+  const btnApproved = document.getElementById('subtabApprovedBtn');
+  const btnPosted = document.getElementById('subtabPostedBtn');
+
+  if (secReview) secReview.style.display = tab === 'review' ? 'block' : 'none';
+  if (secApproved) secApproved.style.display = tab === 'approved' ? 'block' : 'none';
+  if (secPosted) secPosted.style.display = tab === 'posted' ? 'block' : 'none';
+
+  if (btnReview) {
+    btnReview.style.background = tab === 'review' ? '#27272a' : 'transparent';
+    btnReview.style.color = tab === 'review' ? '#fff' : 'var(--dim)';
+  }
+  if (btnApproved) {
+    btnApproved.style.background = tab === 'approved' ? '#27272a' : 'transparent';
+    btnApproved.style.color = tab === 'approved' ? '#fff' : 'var(--dim)';
+  }
+  if (btnPosted) {
+    btnPosted.style.background = tab === 'posted' ? '#27272a' : 'transparent';
+    btnPosted.style.color = tab === 'posted' ? '#fff' : 'var(--dim)';
+  }
+}
+
+async function loadScheduleData() {
+  try {
+    const res = await fetch('/api/schedule');
+    const data = await res.json();
+    scheduleDataCache = data;
+
+    // 1. Autopilot Mode UI
+    const isAuto = Boolean(data.autopilot);
+    const badge = document.getElementById('schedAutopilotBadge');
+    const desc = document.getElementById('schedAutopilotDesc');
+    const btn = document.getElementById('btnToggleAutopilot');
+
+    if (badge) {
+      badge.innerText = isAuto ? '● AUTOPILOT ACTIVE (1H Interval)' : '● MANUAL REVIEW MODE';
+      badge.style.background = isAuto ? '#064e3b' : '#451a03';
+      badge.style.color = isAuto ? '#34d399' : '#fbbf24';
+    }
+    if (desc) {
+      desc.innerText = isAuto
+        ? 'Autopilot is ON: New AI-rendered clips are automatically approved and scheduled 1 hour after each other directly to your connected YouTube Shorts channel.'
+        : 'Autopilot is OFF: New AI-rendered clips wait in the Review Queue below. Approve or disapprove clips before they enter the 1-hour schedule.';
+    }
+    if (btn) {
+      btn.innerText = isAuto ? '⚡ Autopilot: ON' : '⏸️ Autopilot: OFF (Review Mode)';
+      btn.style.background = isAuto ? '#059669' : '#d97706';
+    }
+
+    // 2. Stats & Counters
+    const nextPost = data.next_post;
+    const statNext = document.getElementById('statNextPostTime');
+    if (statNext) {
+      statNext.innerText = nextPost ? `${nextPost.relative_time} (${nextPost.scheduled_time_str})` : 'None scheduled';
+    }
+
+    const statPending = document.getElementById('statPendingCount');
+    if (statPending) statPending.innerText = `${data.pending_count} clips`;
+    const statApproved = document.getElementById('statApprovedCount');
+    if (statApproved) statApproved.innerText = `${data.approved_count} clips`;
+    const statPosted = document.getElementById('statPostedCount');
+    if (statPosted) statPosted.innerText = `${data.posted_count} shorts`;
+
+    // Subtab Badges
+    const bPending = document.getElementById('subtabPendingBadge');
+    if (bPending) bPending.innerText = data.pending_count;
+    const bApproved = document.getElementById('subtabApprovedBadge');
+    if (bApproved) bApproved.innerText = data.approved_count;
+    const bPosted = document.getElementById('subtabPostedBadge');
+    if (bPosted) bPosted.innerText = data.posted_count;
+    const navB = document.getElementById('navScheduleBadge');
+    if (navB) {
+      navB.innerText = data.pending_count > 0 ? `${data.pending_count} pending` : (data.approved_count > 0 ? `${data.approved_count} queued` : '');
+      navB.style.display = (data.pending_count > 0 || data.approved_count > 0) ? 'inline-block' : 'none';
+    }
+
+    // 3. Render Review Queue (Pending Approval)
+    const pendingGrid = document.getElementById('schedPendingGrid');
+    if (pendingGrid) {
+      if (!data.pending || data.pending.length === 0) {
+        pendingGrid.innerHTML = `
+          <div style="color:var(--dim);font-size:12.5px;padding:36px;text-align:center;grid-column:1/-1;">
+            ✨ No clips waiting for review. When Autopilot is OFF, newly cut clips from live streams appear here for approval!
+          </div>`;
+      } else {
+        pendingGrid.innerHTML = data.pending.map(p => {
+          const speakerBadge = p.speaker_type === 'character_interaction'
+            ? '<span class="badge" style="background:#1e1b4b;color:#a5b4fc;font-size:10px;">🎮 Character Interaction</span>'
+            : '<span class="badge" style="background:#451a03;color:#fbbf24;font-size:10px;">🎙️ Streamer Reaction</span>';
+
+          return `
+            <div class="card" style="margin-bottom:0;background:#09090b;border:1px solid #27272a;display:flex;flex-direction:column;justify-content:space-between;padding:12px;">
+              <div>
+                <div style="aspect-ratio:9/16;background:#000;border-radius:6px;overflow:hidden;position:relative;margin-bottom:10px;max-height:360px;">
+                  <video src="/media/video/${p.file}" controls playsinline preload="metadata" style="width:100%;height:100%;object-fit:contain;background:#000;"></video>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;">
+                  <span class="badge" style="background:#27272a;color:#fff;font-size:10.5px;">${p.streamer}</span>
+                  ${speakerBadge}
+                  <span style="font-size:11px;color:var(--dim);">${Math.round(p.duration || 25)}s</span>
+                </div>
+                <b style="font-size:13.5px;color:#fff;display:block;margin-bottom:4px;line-height:1.3;">${p.hook || p.title}</b>
+                <p style="font-size:11.5px;color:var(--dim);margin:0 0 8px 0;line-height:1.35;">${p.caption || ''}</p>
+                <div style="font-size:10.5px;color:#38bdf8;margin-bottom:12px;font-family:monospace;">${(p.hashtags || []).join(' ')}</div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid #18181b;padding-top:10px;">
+                <div style="display:flex;gap:6px;">
+                  <button class="btn btn-sm" style="flex:1;background:#059669;color:#fff;font-weight:700;font-size:11.5px;padding:7px 8px;" onclick="approveScheduledPost('${p.id}')">
+                    ✅ Approve (+1h)
+                  </button>
+                  <button class="btn btn-sm btn-outline" style="flex:1;color:#ef4444;border-color:#7f1d1d;font-size:11px;padding:7px 8px;" onclick="disapproveScheduledPost('${p.id}')">
+                    ❌ Disapprove
+                  </button>
+                </div>
+                <button class="btn btn-sm btn-outline" style="width:100%;font-size:11px;color:#38bdf8;border-color:#0369a1;padding:6px 8px;" onclick="postScheduledNow('${p.id}')">
+                  🚀 Post to YouTube Now
+                </button>
+              </div>
+            </div>`;
+        }).join('');
+      }
+    }
+
+    // 4. Render Approved Schedule Timeline
+    const approvedList = document.getElementById('schedApprovedList');
+    if (approvedList) {
+      if (!data.approved || data.approved.length === 0) {
+        approvedList.innerHTML = `
+          <div style="color:var(--dim);font-size:12.5px;padding:36px;text-align:center;">
+            ⏳ No clips currently scheduled in the timeline. Approve clips from the Review Queue or turn Autopilot ON!
+          </div>`;
+      } else {
+        approvedList.innerHTML = data.approved.map((p, idx) => {
+          const speakerBadge = p.speaker_type === 'character_interaction'
+            ? '<span class="badge" style="background:#1e1b4b;color:#a5b4fc;font-size:10px;">🎮 Character Interaction</span>'
+            : '<span class="badge" style="background:#451a03;color:#fbbf24;font-size:10px;">🎙️ Streamer Reaction</span>';
+
+          return `
+            <div class="card" style="margin-bottom:0;background:#09090b;border:1px solid #27272a;padding:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+              <div style="width:110px;aspect-ratio:9/16;background:#000;border-radius:6px;overflow:hidden;flex-shrink:0;">
+                <video src="/media/video/${p.file}" controls playsinline preload="metadata" style="width:100%;height:100%;object-fit:contain;background:#000;"></video>
+              </div>
+
+              <div style="flex:1;min-width:240px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+                  <span class="badge" style="background:#0284c7;color:#fff;font-weight:700;font-size:11px;">Slot #${idx + 1}</span>
+                  <span class="badge" style="background:#064e3b;color:#34d399;font-weight:700;font-size:11px;">🕒 ${p.scheduled_time_str} (${p.relative_time})</span>
+                  <span class="badge" style="background:#27272a;color:#fff;font-size:10.5px;">${p.streamer}</span>
+                  ${speakerBadge}
+                </div>
+                <b style="font-size:14px;color:#fff;display:block;margin-bottom:4px;">${p.hook || p.title}</b>
+                <p style="font-size:12px;color:var(--dim);margin:0 0 6px 0;line-height:1.35;">${p.caption || ''}</p>
+                <div style="font-size:11px;color:#38bdf8;font-family:monospace;">${(p.hashtags || []).join(' ')}</div>
+                ${p.error ? `<div style="font-size:11px;color:#ef4444;margin-top:4px;">⚠️ Upload Attempt Notice: ${p.error}</div>` : ''}
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+                <button class="btn btn-sm btn-social" style="font-size:11.5px;padding:8px 14px;" onclick="postScheduledNow('${p.id}')">
+                  ⚡ Post to YouTube Now
+                </button>
+                <button class="btn btn-sm btn-outline" style="font-size:11px;color:#ef4444;border-color:#7f1d1d;padding:6px 12px;" onclick="deleteScheduledPost('${p.id}')">
+                  ❌ Cancel Post
+                </button>
+              </div>
+            </div>`;
+        }).join('');
+      }
+    }
+
+    // 5. Render Published Shorts
+    const postedList = document.getElementById('schedPostedList');
+    if (postedList) {
+      if (!data.posted || data.posted.length === 0) {
+        postedList.innerHTML = `
+          <div style="color:var(--dim);font-size:12.5px;padding:36px;text-align:center;">
+            🚀 No videos published yet. As each 1-hour slot arrives, uploaded YouTube Shorts appear here!
+          </div>`;
+      } else {
+        postedList.innerHTML = data.posted.map(p => {
+          const postDate = p.posted_at ? new Date(p.posted_at * 1000).toLocaleString() : 'Recently';
+          return `
+            <div class="card" style="margin-bottom:0;background:#09090b;border:1px solid #166534;padding:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+              <div style="width:90px;aspect-ratio:9/16;background:#000;border-radius:6px;overflow:hidden;flex-shrink:0;">
+                <video src="/media/video/${p.file}" controls playsinline preload="metadata" style="width:100%;height:100%;object-fit:contain;background:#000;"></video>
+              </div>
+
+              <div style="flex:1;min-width:240px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                  <span class="badge" style="background:#14532d;color:#4ade80;font-weight:700;font-size:11px;">✅ Live on YouTube Shorts</span>
+                  <span style="font-size:11px;color:var(--dim);">${postDate}</span>
+                </div>
+                <b style="font-size:14px;color:#fff;display:block;margin-bottom:4px;">${p.hook || p.title}</b>
+                <p style="font-size:12px;color:var(--dim);margin:0 0 6px 0;">${p.caption || ''}</p>
+                ${p.youtube_url ? `<a href="${p.youtube_url}" target="_blank" style="font-size:12px;color:#38bdf8;text-decoration:none;font-weight:600;">🔗 ${p.youtube_url} ↗</a>` : ''}
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+                ${p.youtube_url ? `
+                  <a href="${p.youtube_url}" target="_blank" class="btn btn-sm btn-social" style="font-size:11.5px;padding:8px 14px;text-decoration:none;display:inline-block;text-align:center;">
+                    ▶️ Open on YouTube
+                  </a>` : ''}
+              </div>
+            </div>`;
+        }).join('');
+      }
+    }
+
+  } catch (e) {
+    console.error('Failed to load schedule data:', e);
+  }
+}
+
+async function toggleScheduleAutopilot() {
+  try {
+    const res = await fetch('/api/schedule/toggle-autopilot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+    const data = await res.json();
+    alert(data.autopilot ? '⚡ Autopilot is now ON!\n\nNew AI-rendered clips will be automatically approved and scheduled 1 hour apart.' : '⏸️ Autopilot is now OFF (Manual Review Mode).\n\nNew clips will wait in the Review Queue for your approval.');
+    loadScheduleData();
+  } catch (e) {
+    alert('Error toggling autopilot: ' + e);
+  }
+}
+
+async function approveScheduledPost(id) {
+  try {
+    const res = await fetch(`/api/schedule/${id}/approve`, { method: 'POST' });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || res.statusText);
+    loadScheduleData();
+  } catch (e) {
+    alert('Approval error: ' + e.message);
+  }
+}
+
+async function disapproveScheduledPost(id) {
+  if (!confirm('Disapprove and remove this clip from the schedule?')) return;
+  try {
+    const res = await fetch(`/api/schedule/${id}/disapprove`, { method: 'POST' });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || res.statusText);
+    loadScheduleData();
+  } catch (e) {
+    alert('Disapproval error: ' + e.message);
+  }
+}
+
+async function postScheduledNow(id) {
+  if (!confirm('Upload this clip directly to YouTube Shorts right now?')) return;
+  try {
+    const res = await fetch(`/api/schedule/${id}/post-now`, { method: 'POST' });
+    const d = await res.json();
+    if (!res.ok || !d.ok) throw new Error(d.error || d.detail || res.statusText);
+    alert(`🎉 Published successfully to YouTube Shorts!\n\nLink: ${d.url}`);
+    loadScheduleData();
+  } catch (e) {
+    alert('Posting error: ' + e.message);
+  }
+}
+
+async function deleteScheduledPost(id) {
+  if (!confirm('Remove this post from the schedule queue?')) return;
+  try {
+    const res = await fetch(`/api/schedule/${id}`, { method: 'DELETE' });
+    loadScheduleData();
+  } catch (e) {
+    alert('Delete error: ' + e);
+  }
+}
+
+async function purgeAllClipsConfirm() {
+  if (!confirm('⚠️ Are you sure you want to delete ALL clips from the library, stream storage, and reset the schedule completely?')) return;
+  try {
+    const res = await fetch('/api/clips/purge-all', { method: 'POST' });
+    const d = await res.json();
+    alert(`🧹 Successfully cleaned up: ${d.deleted_count} clips deleted. Library and schedule reset!`);
+    loadScheduleData();
+    loadAllClips();
+  } catch (e) {
+    alert('Purge error: ' + e);
   }
 }
 
@@ -6731,6 +7142,9 @@ function switchTab(tab) {
   if (tabStorage) tabStorage.style.display = tab === 'storage' ? 'block' : 'none';
   document.getElementById('tabSettings').style.display = tab === 'settings' ? 'block' : 'none';
   document.getElementById('tabSocial').style.display = tab === 'social' ? 'block' : 'none';
+  const tabSchedule = document.getElementById('tabSchedule');
+  if (tabSchedule) tabSchedule.style.display = tab === 'schedule' ? 'block' : 'none';
+
   document.querySelectorAll('.nav button').forEach(btn => {
     const fn = btn.getAttribute('onclick') || '';
     btn.classList.toggle('active', fn.includes(`switchTab('${tab}')`));
@@ -6739,6 +7153,7 @@ function switchTab(tab) {
     'dashboard': 'mNavStreams',
     'creators': 'mNavCreators',
     'clips': 'mNavClips',
+    'schedule': 'mNavSchedule',
     'storage': 'mNavStorage',
     'social': 'mNavSocial'
   };
@@ -6754,6 +7169,8 @@ function switchTab(tab) {
     loadCreators();
   } else if (tab === 'clips') {
     loadAllClips();
+  } else if (tab === 'schedule') {
+    loadScheduleData();
   } else if (tab === 'storage') {
     loadStorageOverview();
   } else if (tab === 'social') {
@@ -6914,6 +7331,8 @@ if (urlParams.get('connected')) {
   switchTab('social');
 } else if (window.location.hash === '#clips' || window.location.hash === '#library') {
   switchTab('clips');
+} else if (window.location.hash === '#schedule') {
+  switchTab('schedule');
 } else if (window.location.hash === '#creators') {
   switchTab('creators');
 } else if (window.location.hash === '#storage') {
@@ -6936,7 +7355,11 @@ if (urlParams.get('connected')) {
   <button id="mNavClips" onclick="switchTab('clips')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
     <span>Clips</span>
-    <span class="mobile-badge" id="mNavClipsBadge">50+</span>
+    <span class="mobile-badge" id="mNavClipsBadge">0</span>
+  </button>
+  <button id="mNavSchedule" onclick="switchTab('schedule')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+    <span>Schedule</span>
   </button>
   <button id="mNavStorage" onclick="switchTab('storage')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>

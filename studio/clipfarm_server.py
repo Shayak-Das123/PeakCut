@@ -47,7 +47,7 @@ from clipfarm.util import hms, read_json, save_settings, settings, stream_dir, w
 
 from urllib.parse import quote
 from fastapi.responses import RedirectResponse
-from studio import accounts, config, ctx
+from studio import accounts, config, ctx, scheduler
 
 # Configure server public URL and default port for OAuth callbacks
 config.PORT = int(os.environ.get("CLIPFARM_PORT", 8767))
@@ -3497,6 +3497,89 @@ def post_clip_action(payload: dict):
             raise HTTPException(status_code=500, detail=f"Instagram upload failed: {str(e)}")
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported platform: {platform}")
+
+
+# -------------------------------------------------------------------------
+# Autonomous 1-Hour Schedule & Review Queue API Endpoints
+# -------------------------------------------------------------------------
+@app.get("/api/schedule")
+def api_get_schedule():
+    return scheduler.get_schedule()
+
+
+@app.post("/api/schedule/toggle-autopilot")
+def api_toggle_autopilot(payload: dict = None):
+    en = payload.get("enabled") if payload else None
+    res = scheduler.toggle_autopilot(en)
+    return {"ok": True, "autopilot": res}
+
+
+@app.post("/api/schedule/{post_id}/approve")
+def api_approve_post(post_id: str):
+    try:
+        p = scheduler.approve_post(post_id)
+        return {"ok": True, "post": p}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/schedule/{post_id}/disapprove")
+def api_disapprove_post(post_id: str):
+    try:
+        p = scheduler.disapprove_post(post_id)
+        return {"ok": True, "post": p}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/schedule/{post_id}/post-now")
+def api_post_now(post_id: str):
+    try:
+        res = scheduler.post_now(post_id)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/schedule/{post_id}/reschedule")
+def api_reschedule_post(post_id: str, payload: dict):
+    ts = payload.get("scheduled_at")
+    if not ts:
+        raise HTTPException(status_code=400, detail="scheduled_at timestamp is required")
+    try:
+        p = scheduler.reschedule_post(post_id, ts)
+        return {"ok": True, "post": p}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/schedule/{post_id}")
+def api_delete_scheduled_post(post_id: str):
+    ok = scheduler.delete_post(post_id)
+    return {"ok": ok}
+
+
+@app.post("/api/clips/purge-all")
+def api_purge_all_clips():
+    """Purges all clips and resets schedule."""
+    deleted = 0
+    for s_dir in (WORK_DIR / "streams").glob("*"):
+        for f in (s_dir / "clips").glob("*.mp4"):
+            try:
+                f.unlink(missing_ok=True)
+                deleted += 1
+            except Exception:
+                pass
+        final_f = s_dir / "final.json"
+        if final_f.exists():
+            final_f.unlink(missing_ok=True)
+    scheduler.clear_all_schedule()
+    ctx.bump()
+    return {"ok": True, "deleted_count": deleted}
+
+
+# Start background 1-hour posting scheduler worker daemon
+scheduler.start_scheduler_worker()
 
 
 @app.get("/", response_class=HTMLResponse)
