@@ -507,7 +507,7 @@ def render_session_picks(s_dir: Path, stream_cfg: dict, picks: list[dict]):
                     "id": cid,
                     "filename": meta.get("file"),
                     "file": meta.get("file"),
-                    "filepath": str(out_dir / meta.get("file")),
+                    "filepath": str(s_dir / "clips" / meta.get("file")),
                     "streamer": streamer,
                     "hook": hook,
                     "title": hook,

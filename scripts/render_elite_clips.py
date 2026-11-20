@@ -46,6 +46,14 @@ def load_stream_segments(stream_folder: Path) -> list[tuple[Path, float, float]]
                         segments.append((ts_path, a, b))
                 except ValueError:
                     pass
+    if not segments:
+        ts_files = sorted(buf.glob("*.ts"))
+        cur_t = 0.0
+        seg_dur = 6.0
+        for ts_p in ts_files:
+            if ts_p.stat().st_size > 1000:
+                segments.append((ts_p, round(cur_t, 2), round(cur_t + seg_dur, 2)))
+                cur_t += seg_dur
     return sorted(segments, key=lambda x: x[1])
 
 def render_curated_reel(
