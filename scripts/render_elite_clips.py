@@ -185,7 +185,12 @@ def render_curated_reel(
     comp_txt = out_dir / f"{Path(out_name).stem}.txt"
     comp_txt.write_text("\n".join(txt_lines), encoding="utf-8")
 
-    # Keep intermediate section file for instant re-rendering / caption editing
+    # Keep intermediate section file and build clean 9:16 background video for instant re-rendering
     # sec_file.unlink(missing_ok=True)
+    try:
+        from studio.clipfarm_server import ensure_clean_video
+        ensure_clean_video(stream_key, cid, force=True)
+    except Exception as ex:
+        print(f"[{cid}] Note: clean video caching: {ex}")
     print(f"[{cid}] SUCCESS -> {out_name} (Hook: '{hook}')")
     return meta

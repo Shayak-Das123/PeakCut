@@ -1758,12 +1758,12 @@ def adjust_clip_bounds(key: str, cid: str, payload: dict):
 
     d = stream_dir(key)
     actual_key = key
-    if not d.exists() or key == "vod":
+    if not (d / "final.json").exists() or key in ("vod", "dated"):
         for s_dir in (WORK_DIR / "streams").glob("*"):
             fj = s_dir / "final.json"
             if fj.exists():
-                c_list = read_json(fj, {}).get("clips", [])
-                match = next((c for c in c_list if match_clip_id(c.get("id"), cid)), None)
+                c_list = read_json(fj, {}).get("clips", []) or read_json(fj, {}).get("curated_picks", [])
+                match = next((c for c in c_list if match_clip_id(c.get("id"), cid) or (c.get("file") and cid in c.get("file"))), None)
                 if match:
                     d = s_dir
                     actual_key = s_dir.name
@@ -1771,10 +1771,29 @@ def adjust_clip_bounds(key: str, cid: str, payload: dict):
 
     final_file = d / "final.json"
     if not final_file.exists():
-        raise HTTPException(status_code=404, detail="Stream final.json not found")
+        for s_dir in (WORK_DIR / "streams").glob("*"):
+            fj = s_dir / "final.json"
+            if fj.exists():
+                c_list = read_json(fj, {}).get("clips", []) or read_json(fj, {}).get("curated_picks", [])
+                match = next((c for c in c_list if match_clip_id(c.get("id"), cid) or (c.get("file") and cid in c.get("file"))), None)
+                if match:
+                    d = s_dir
+                    final_file = fj
+                    actual_key = s_dir.name
+                    break
+        if not final_file.exists():
+            raise HTTPException(status_code=404, detail="Stream final.json not found")
 
     final_data = read_json(final_file, {"clips": []})
-    clip = next((c for c in final_data.get("clips", []) if match_clip_id(c.get("id"), cid)), None)
+    clips_list = final_data.get("clips") or final_data.get("curated_picks") or []
+    final_data["clips"] = clips_list
+    final_data["curated_picks"] = clips_list
+    clip = next((c for c in clips_list if match_clip_id(c.get("id"), cid)), None)
+    if not clip:
+        for c in clips_list:
+            if c.get("file") and (cid in c.get("file") or match_clip_id(c.get("file").split("_")[0], cid)):
+                clip = c
+                break
     if not clip:
         raise HTTPException(status_code=404, detail="Clip not found")
 
@@ -1808,11 +1827,11 @@ def adjust_clip_bounds(key: str, cid: str, payload: dict):
             "-c", "copy", "-movflags", "+faststart",
             str(sec_file)
         ], check=False)
-    else:
-        # VOD stream: remove previous section file so fetch.download_section re-downloads exact new boundary
-        if sec_file.exists():
-            try: sec_file.unlink()
-            except Exception: pass
+    elif not sec_file.exists():
+        for sf in (d / "sections").glob("*.mp4"):
+            if match_clip_id(sf.stem, actual_cid) and sf.stat().st_size > 10000:
+                shutil.copy2(sf, sec_file)
+                break
 
     # Clean previous rendered clip file across stream clips and all dated folders so old version is deleted!
     target_clips = d / "clips"
@@ -2091,25 +2110,71 @@ def remove_clip_captions(key: str, cid: str):
 def auto_filter_characters(key: str, cid: str):
     """Diarizes dialogue: keeps only the live streamer's voice and removes character speech."""
     d = stream_dir(key)
+    actual_key = key
+    if not (d / "final.json").exists() or key in ("vod", "dated"):
+        for s_dir in (WORK_DIR / "streams").glob("*"):
+            fj = s_dir / "final.json"
+            if fj.exists():
+                c_list = read_json(fj, {}).get("clips", []) or read_json(fj, {}).get("curated_picks", [])
+                match = next((c for c in c_list if match_clip_id(c.get("id"), cid) or (c.get("file") and cid in c.get("file"))), None)
+                if match:
+                    d = s_dir
+                    actual_key = s_dir.name
+                    break
     info = read_json(d / "info.json", {})
     streamer = info.get("streamer", "Streamer")
     existing_words_file = d / "render" / cid / "words.json"
+    if not existing_words_file.exists():
+        for wf in (d / "render").glob("*/words.json"):
+            if match_clip_id(wf.parent.name, cid):
+                existing_words_file = wf
+                break
     existing_words = read_json(existing_words_file, []) if existing_words_file.exists() else []
     from studio.diarization import filter_streamer_words
     filtered_words = filter_streamer_words(streamer, existing_words)
-    return rerender_clip_custom(key, cid, {"words": filtered_words})
+    return rerender_clip_custom(actual_key, cid, {"words": filtered_words})
 
 
 @app.post("/api/streams/{key}/clips/{cid}/rerender-custom")
 def rerender_clip_custom(key: str, cid: str, payload: dict):
     d = stream_dir(key)
+    actual_key = key
+    if not (d / "final.json").exists() or key in ("vod", "dated"):
+        for s_dir in (WORK_DIR / "streams").glob("*"):
+            fj = s_dir / "final.json"
+            if fj.exists():
+                c_list = read_json(fj, {}).get("clips", []) or read_json(fj, {}).get("curated_picks", [])
+                match = next((c for c in c_list if match_clip_id(c.get("id"), cid) or (c.get("file") and cid in c.get("file"))), None)
+                if match:
+                    d = s_dir
+                    actual_key = s_dir.name
+                    break
+
     final_file = d / "final.json"
     if not final_file.exists():
-        raise HTTPException(status_code=404, detail="final.json not found")
+        for s_dir in (WORK_DIR / "streams").glob("*"):
+            fj = s_dir / "final.json"
+            if fj.exists():
+                c_list = read_json(fj, {}).get("clips", []) or read_json(fj, {}).get("curated_picks", [])
+                match = next((c for c in c_list if match_clip_id(c.get("id"), cid) or (c.get("file") and cid in c.get("file"))), None)
+                if match:
+                    d = s_dir
+                    final_file = fj
+                    actual_key = s_dir.name
+                    break
+        if not final_file.exists():
+            raise HTTPException(status_code=404, detail="final.json not found")
+
     final_data = read_json(final_file, {"clips": []})
     clips_list = final_data.get("clips") or final_data.get("curated_picks") or []
     final_data["clips"] = clips_list
+    final_data["curated_picks"] = clips_list
     clip = next((c for c in clips_list if match_clip_id(c.get("id"), cid)), None)
+    if not clip:
+        for c in clips_list:
+            if c.get("file") and (cid in c.get("file") or match_clip_id(c.get("file").split("_")[0], cid)):
+                clip = c
+                break
     if not clip:
         raise HTTPException(status_code=404, detail="Clip not found")
 
@@ -2219,9 +2284,9 @@ def rerender_clip_custom(key: str, cid: str, payload: dict):
         s.update(payload["style_overrides"])
         save_settings(s)
 
-    made = render.render_stream(key, only=actual_cid)
+    made = render.render_stream(actual_key, only=actual_cid)
     try:
-        ensure_clean_video(key, actual_cid, force=True)
+        ensure_clean_video(actual_key, actual_cid, force=True)
     except Exception as ex:
         print("Warning updating clean video after render:", ex)
     

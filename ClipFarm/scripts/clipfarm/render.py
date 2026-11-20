@@ -203,6 +203,10 @@ def render_one(info: dict, d: Path, clip: dict, idx: int, out_dir: Path, layout:
              "-i", str(d / "live_stream.mp4"), "-c", "copy", "-movflags", "+faststart", str(sec)], check=False)
         T0 = t_start
         conf = 99.0
+    elif any(f.exists() and f.stat().st_size > 10000 for f in [d / "sections" / f"{cid}.mp4", d / "sections" / f"{cid.replace('clip_', 'c')}.mp4", d / "sections" / f"{cid.replace('c', 'clip_')}.mp4"]):
+        sec = next(f for f in [d / "sections" / f"{cid}.mp4", d / "sections" / f"{cid.replace('clip_', 'c')}.mp4", d / "sections" / f"{cid.replace('c', 'clip_')}.mp4"] if f.exists() and f.stat().st_size > 10000)
+        T0 = max(0.0, s - 4)
+        conf = 99.0
     else:
         sec = fetch.download_section(info["url"], s - 4, e + 4, d / "sections" / f"{cid}.mp4")
         sec_audio = decode_audio(sec)
