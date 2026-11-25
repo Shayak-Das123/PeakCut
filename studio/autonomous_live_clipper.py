@@ -79,60 +79,6 @@ TARGET_STREAMERS = [
         "layout": "stack"
     },
     {
-        "id": "youtube-carryminati",
-        "streamer": "CarryMinati",
-        "platform": "youtube",
-        "url": "https://www.youtube.com/@CarryisLive/live",
-        "channel": "CarryisLive",
-        "language": "hindi",
-        "layout": "stack"
-    },
-    {
-        "id": "youtube-technogamerz",
-        "streamer": "Techno Gamerz",
-        "platform": "youtube",
-        "url": "https://www.youtube.com/@TechnoGamerzOfficial/live",
-        "channel": "TechnoGamerzOfficial",
-        "language": "hindi",
-        "layout": "stack"
-    },
-    {
-        "id": "youtube-totalgaming",
-        "streamer": "Total Gaming",
-        "platform": "youtube",
-        "url": "https://www.youtube.com/@TotalGaming093/live",
-        "channel": "TotalGaming093",
-        "language": "hindi",
-        "layout": "stack"
-    },
-    {
-        "id": "youtube-scout",
-        "streamer": "Scout",
-        "platform": "youtube",
-        "url": "https://www.youtube.com/@scoutOP/live",
-        "channel": "scoutOP",
-        "language": "hindi",
-        "layout": "stack"
-    },
-    {
-        "id": "youtube-mortal",
-        "streamer": "Mortal",
-        "platform": "youtube",
-        "url": "https://www.youtube.com/@Morticall/live",
-        "channel": "Morticall",
-        "language": "hindi",
-        "layout": "stack"
-    },
-    {
-        "id": "youtube-liveinsaan",
-        "streamer": "Live Insaan",
-        "platform": "youtube",
-        "url": "https://www.youtube.com/@LiveInsaan/live",
-        "channel": "LiveInsaan",
-        "language": "hindi",
-        "layout": "stack"
-    },
-    {
         "id": "twitch-jynxzi",
         "streamer": "Jynxzi",
         "platform": "twitch",
@@ -146,6 +92,110 @@ TARGET_STREAMERS = [
         "platform": "twitch",
         "url": "https://www.twitch.tv/tarik",
         "channel": "tarik",
+        "layout": "stack"
+    },
+    {
+        "id": "twitch-shroud",
+        "streamer": "Shroud",
+        "platform": "twitch",
+        "url": "https://www.twitch.tv/shroud",
+        "channel": "shroud",
+        "layout": "stack"
+    },
+    {
+        "id": "twitch-lirik",
+        "streamer": "Lirik",
+        "platform": "twitch",
+        "url": "https://www.twitch.tv/lirik",
+        "channel": "lirik",
+        "layout": "stack"
+    },
+    {
+        "id": "twitch-asmongold",
+        "streamer": "Asmongold",
+        "platform": "twitch",
+        "url": "https://www.twitch.tv/zackrawrr",
+        "channel": "zackrawrr",
+        "layout": "stack"
+    },
+    {
+        "id": "twitch-summit1g",
+        "streamer": "Summit1g",
+        "platform": "twitch",
+        "url": "https://www.twitch.tv/summit1g",
+        "channel": "summit1g",
+        "layout": "stack"
+    },
+    {
+        "id": "twitch-tenz",
+        "streamer": "TenZ",
+        "platform": "twitch",
+        "url": "https://www.twitch.tv/tenz",
+        "channel": "tenz",
+        "layout": "stack"
+    },
+    {
+        "id": "twitch-kyedae",
+        "streamer": "Kyedae",
+        "platform": "twitch",
+        "url": "https://www.twitch.tv/kyedae",
+        "channel": "kyedae",
+        "layout": "stack"
+    },
+    {
+        "id": "twitch-hasanabi",
+        "streamer": "HasanAbi",
+        "platform": "twitch",
+        "url": "https://www.twitch.tv/hasanabi",
+        "channel": "hasanabi",
+        "layout": "stack"
+    },
+    {
+        "id": "twitch-pokimane",
+        "streamer": "Pokimane",
+        "platform": "twitch",
+        "url": "https://www.twitch.tv/pokimane",
+        "channel": "pokimane",
+        "layout": "stack"
+    },
+    {
+        "id": "youtube-typicalgamer",
+        "streamer": "Typical Gamer",
+        "platform": "youtube",
+        "url": "https://www.youtube.com/@typicalgamer/live",
+        "channel": "typicalgamer",
+        "layout": "stack"
+    },
+    {
+        "id": "youtube-flightreacts",
+        "streamer": "FlightReacts",
+        "platform": "youtube",
+        "url": "https://www.youtube.com/@FlightReacts/live",
+        "channel": "FlightReacts",
+        "layout": "stack"
+    },
+    {
+        "id": "youtube-timthetatman",
+        "streamer": "TimTheTatman",
+        "platform": "youtube",
+        "url": "https://www.youtube.com/@TimTheTatman/live",
+        "channel": "TimTheTatman",
+        "layout": "stack"
+    },
+    {
+        "id": "twitch-moistcrk9",
+        "streamer": "MoistCrk9",
+        "platform": "twitch",
+        "url": "https://www.twitch.tv/moistcrk9",
+        "channel": "moistcrk9",
+        "layout": "stack"
+    },
+    {
+        "id": "twitch-mizkif",
+        "streamer": "Mizkif",
+        "platform": "twitch",
+        "url": "https://www.twitch.tv/mizkif",
+        "channel": "mizkif",
         "layout": "stack"
     }
 ]
